@@ -26,8 +26,9 @@ subscriber_stream_topics = Table(
 class SubscriberEntity(BaseEntity):
     __tablename__ = "subscribers"
 
-    tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    tg_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True, index=True)
     stream_topics: Mapped[list["StreamTopicEntity"]] = relationship(
         secondary=subscriber_stream_topics,
         back_populates="subscribers",
+        lazy="raise",
     )

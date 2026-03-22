@@ -22,7 +22,12 @@ class BotClient:
         self.bot = Bot(self.config.bot_token)
         self.dp = Dispatcher()
         self.waiter = EventWaiter()
-        self.db = Database(self.config.database_url)
+        self.db = Database(
+            self.config.database_url,
+            pool_size=self.config.db_pool_size,
+            max_overflow=self.config.db_max_overflow,
+            pool_recycle=self.config.db_pool_recycle,
+        )
 
         self.commands = load_instances_from_directory("commands", "commands", BaseCommand, self)
         self.buttons = load_instances_from_directory("buttons", "buttons", BaseButton, self)

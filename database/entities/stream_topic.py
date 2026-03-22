@@ -16,4 +16,5 @@ class StreamTopicEntity(BaseEntity):
     subscribers: Mapped[list["SubscriberEntity"]] = relationship(
         secondary=subscriber_stream_topics,
         back_populates="stream_topics",
+        lazy="raise",
     )

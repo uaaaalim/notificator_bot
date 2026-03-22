@@ -1,9 +1,12 @@
 from aiogram.enums import ParseMode
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup
+from sqlalchemy.orm import selectinload
 
 from core.implementations.button import BaseButton
-from database.repos import Repositories
-from services.subscribers import get_subscriber, get_select_topics
+from database.entities.subscribers import SubscriberEntity
+from database.services import stream_topics
+from database.services import subscribers
+from services.subscribers import get_select_topics
 
 
 class ChooseStreamTopicsButton(BaseButton):
@@ -11,12 +14,22 @@ class ChooseStreamTopicsButton(BaseButton):
 
     async def execute(self, callback: CallbackQuery) -> None:
         async with self.client.db.session() as db:
-            repos = Repositories(db)
+            async with db.begin():
+                tg_id = callback.message.chat.id
+                await subscribers.ensure_subscriber(db, tg_id)
 
-            subscriber = await get_subscriber(db, callback.message.chat.id) # Register subscriber
-            topics = await repos.stream_topics.get_all()
+                subscriber_item = await subscribers.get_subscriber(
+                    db,
+                    tg_id,
+                    options=[selectinload(SubscriberEntity.stream_topics)],
+                )
+                if not subscriber_item:
+                    await callback.answer("Ошибка загрузки подписчика", show_alert=True)
+                    return
 
-            keyboard = InlineKeyboardMarkup(inline_keyboard=get_select_topics(subscriber, topics))
+                topics = await stream_topics.get_stream_topics(db)
+
+                keyboard = InlineKeyboardMarkup(inline_keyboard=get_select_topics(subscriber_item, topics))
 
         await callback.message.edit_text(
             "📢 Выбор тематик стримов!\n\n"
