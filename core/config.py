@@ -6,14 +6,14 @@ from dotenv import load_dotenv
 class Config:
     def __init__(
             self, bot_token: str, database_url: str, log_level: str = "INFO",
-            author_id: str | int = None, owner_ids: list[str | int] = None,
+            author_id: str | int = None, owner_ids: list[str] = None,
             db_pool_size: int = 20, db_max_overflow: int = 40, db_pool_recycle: int = 1800,
     ) -> None:
         self.bot_token = bot_token
         self.database_url = database_url
         self.log_level = log_level
         self.author_id = author_id
-        self.owner_ids = owner_ids or []
+        self.owner_ids = map(int, owner_ids) or []
         self.db_pool_size = db_pool_size
         self.db_max_overflow = db_max_overflow
         self.db_pool_recycle = db_pool_recycle
