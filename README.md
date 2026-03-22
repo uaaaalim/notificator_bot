@@ -1,32 +1,45 @@
-# bfit_bot
+# notificator_bot
 
-`bfit_bot` — шаблон Telegram-бота на **aiogram 3** с:
-- автозагрузкой хендлеров из директорий,
-- ожиданием действий пользователя (сообщение/кнопка) с таймером,
-- асинхронной работой с PostgreSQL через SQLAlchemy,
-- миграциями через Alembic,
-- управлением зависимостями через Poetry.
+`notificator_bot` — шаблон Telegram-бота на **aiogram 3** с автозагрузкой хендлеров, PostgreSQL, SQLAlchemy и Alembic.
 
-## Стек
+## Стек проекта
 
 - Python `>=3.13,<3.15`
 - aiogram `>=3.26.0,<4.0.0`
-- sqlalchemy `>=2.0.48,<3.0.0`
+- SQLAlchemy `>=2.0.48,<3.0.0`
 - asyncpg `>=0.31.0,<0.32.0`
-- alembic `>=1.18.4,<2.0.0`
+- Alembic `>=1.18.4,<2.0.0`
 - python-dotenv `>=1.2.2,<2.0.0`
 - colorlog `>=6.10.1,<7.0.0`
 
 ---
 
-## Установка зависимостей (Poetry)
+## Зависимость от Poetry и быстрая установка
+
+Проект использует **Poetry** для управления зависимостями.
+
+### 1) Установить Poetry
+
+Официальный способ:
+
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+Проверка установки:
+
+```bash
+poetry --version
+```
+
+### 2) Установить зависимости проекта
 
 ```bash
 poetry env use 3.13
 poetry install
 ```
 
-Проверить, что окружение поднято:
+Проверка окружения:
 
 ```bash
 poetry run python --version
@@ -34,138 +47,114 @@ poetry run python --version
 
 ---
 
-## Настройка
+## Настройка `.env`
 
-Создайте `.env` в корне проекта:
+Создайте `.env` в корне репозитория:
 
 ```env
-BOT_TOKEN=ваш_токен_бота
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/bfit_bot
+BOT_TOKEN=1234567890:your_telegram_bot_token
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/notificator_bot
 LOG_LEVEL=INFO
+AUTHOR_ID=123456789
+OWNER_IDS=123456789,987654321
+
+DB_POOL_SIZE=20
+DB_MAX_OVERFLOW=40
+DB_POOL_RECYCLE=1800
 ```
 
-> `BOT_TOKEN` обязателен. Если `DATABASE_URL` не указан, используется значение по умолчанию из `core/config.py`.
+Минимально обязательные переменные: `BOT_TOKEN` и `DATABASE_URL`.
 
 ---
 
-## Запуск бота
+## Запуск проекта
 
-### Вариант 1 (рекомендуется)
 ```bash
 poetry run python app.py
 ```
 
-### Вариант 2
+Альтернатива:
+
 ```bash
 poetry run python run.py
 ```
 
-При старте выводятся данные о проекте, версиях библиотек и подключенных хендлерах.
+---
+
+## Структура и автозагрузка хендлеров
+
+При запуске клиент автоматически сканирует директории:
+
+- `commands/` — команды (`/start`, `/help`, ...)
+- `buttons/` — callback-кнопки (inline keyboard)
+- `messages/` — обработчики сообщений
+- `schedules/` — периодические задачи
+
+Сканирование рекурсивное, поэтому можно хранить файлы в поддиректориях, например:
+
+- `buttons/info/show_profile.py`
+- `commands/admin/ban_user.py`
+- `messages/moderation/spam.py`
+
+Главное — чтобы в модуле был класс-наследник нужной базовой реализации:
+
+- `BaseCommand` (`core/implementations/command.py`)
+- `BaseButton` (`core/implementations/button.py`)
+- `BaseMessage` (`core/implementations/message.py`)
+- `BaseSchedule` (`core/implementations/schedule.py`)
 
 ---
 
-## Как устроена автозагрузка
+## Как создать команду (`/commands`)
 
-Бот автоматически сканирует директории:
-- `commands/`
-- `buttons/`
-- `messages/`
-- `schedules/`
-
-и поднимает все классы-наследники базовых реализаций.
-
-Чтобы добавить новый хендлер, достаточно создать `.py` файл с классом нужного типа в соответствующей директории.
-
----
-
-## Примеры из проекта
-
-## 1) Команда (`/start`)
-
-Файл: `commands/start.py`
-
-```python
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-
-from core.implementations.command import BaseCommand
-
-
-class StartCommand(BaseCommand):
-    name = "start"
-    description = "Запуск бота"
-
-    async def execute(self, message: Message) -> None:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(text="Ping", callback_data="ping")],
-                [InlineKeyboardButton(text="Ждать кнопку 10 сек", callback_data="demo_wait_button")],
-            ]
-        )
-        await message.answer(
-            "Привет! Доступно:\n"
-            "/wait_message - ждать сообщение 10 сек\n"
-            "/db_demo - создать/получить пользователя\n"
-            "Или нажми кнопку ниже.",
-            reply_markup=keyboard,
-        )
-```
-
-Минимальный шаблон своей команды:
+Создайте файл, например `commands/ping.py`:
 
 ```python
 from aiogram.types import Message
+
 from core.implementations.command import BaseCommand
 
 
-class MyCommand(BaseCommand):
-    name = "my_command"
-    description = "Моя команда"
+class PingCommand(BaseCommand):
+    name = "ping"
+    description = "Проверка, что бот жив"
 
     async def execute(self, message: Message) -> None:
-        await message.answer("Команда сработала")
+        await message.answer("pong")
 ```
+
+После перезапуска бота команда станет доступна как `/ping`.
 
 ---
 
-## 2) Листенер кнопки (callback)
+## Как создать кнопку (`/buttons`)
 
-Файл: `buttons/ping.py`
+Создайте файл, например `buttons/ping_button.py`:
 
 ```python
 from aiogram.types import CallbackQuery
+
 from core.implementations.button import BaseButton
 
 
 class PingButton(BaseButton):
-    callback_data = "ping"
-
-    async def execute(self, callback: CallbackQuery) -> None:
-        await callback.answer("pong")
-        await callback.message.answer("Кнопка Ping обработана ✅")
-```
-
-Минимальный шаблон своей кнопки:
-
-```python
-from aiogram.types import CallbackQuery
-from core.implementations.button import BaseButton
-
-
-class MyButton(BaseButton):
-    callback_data = "my_button"
+    callback_data = "ping_button"
 
     async def execute(self, callback: CallbackQuery) -> None:
         await callback.answer("Нажато")
 ```
 
+Можно располагать в поддиректориях (`buttons/info/ping_button.py`) — загрузка всё равно сработает.
+
 ---
 
-## 3) Листенер сообщений
+## Как создать триггер на сообщения (`/messages`)
 
-Файл: `messages/echo.py`
+Создайте файл, например `messages/echo.py`:
 
 ```python
 from aiogram.types import Message
+
 from core.implementations.message import BaseMessage
 
 
@@ -177,69 +166,91 @@ class EchoMessage(BaseMessage):
             await message.answer(f"Эхо: {message.text}")
 ```
 
-Минимальный шаблон своего листенера:
-
-```python
-from aiogram.types import Message
-from core.implementations.message import BaseMessage
-
-
-class MyMessageListener(BaseMessage):
-    trigger = "*"
-
-    async def execute(self, message: Message) -> None:
-        await message.answer("Сообщение получено")
-```
+> `trigger` сейчас служит меткой для логов; отбор логики выполняется внутри `execute`.
 
 ---
 
-## 4) Кнопка + таймер ожидания
+## Ожидание нажатия кнопки и сообщения с таймером
 
-Файл: `buttons/demo_wait_button.py`
+В проекте есть waiter (`core/waiter.py`) и методы в клиенте:
+
+- `self.client.wait_for_button(...)`
+- `self.client.wait_for_message(...)`
+
+### Пример: ждать кнопку 10 секунд
 
 ```python
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
-from core.implementations.button import BaseButton
+from core.implementations.command import BaseCommand
 
 
-class DemoWaitButton(BaseButton):
-    callback_data = "demo_wait_button"
+class ConfirmCommand(BaseCommand):
+    name = "confirm"
+    description = "Демо ожидания кнопки"
 
-    async def execute(self, callback: CallbackQuery) -> None:
-        if not callback.message:
-            await callback.answer("Нет исходного сообщения", show_alert=True)
-            return
-
-        await callback.answer()
+    async def execute(self, message: Message) -> None:
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[InlineKeyboardButton(text="Подтвердить", callback_data="confirm_action")]]
         )
-        prompt = await callback.message.answer("Нажми 'Подтвердить' за 10 секунд", reply_markup=keyboard)
+        prompt = await message.answer("Нажми кнопку за 10 секунд", reply_markup=keyboard)
 
         async def on_timeout() -> None:
-            await prompt.edit_text("⏰ Таймер истек. Кнопка не нажата")
+            await prompt.edit_text("⏰ Время ожидания истекло")
 
-        waited = await self.client.wait_for_button(
-            chat_id=callback.message.chat.id,
-            user_id=callback.from_user.id,
+        callback = await self.client.wait_for_button(
+            chat_id=message.chat.id,
+            user_id=message.from_user.id,
             timeout=10,
+            message_id=prompt.message_id,
             on_timeout=on_timeout,
         )
-        if waited and waited.data == "confirm_action":
-            await waited.answer("Подтверждено")
-            await prompt.edit_text("✅ Действие подтверждено")
+
+        if callback and callback.data == "confirm_action":
+            await callback.answer("OK")
+            await prompt.edit_text("✅ Подтверждено")
 ```
 
-Пример с таймером для ожидания **сообщения**: `commands/wait_message.py`.
+### Пример: ждать сообщение 15 секунд
+
+```python
+from aiogram.types import Message
+
+from core.implementations.command import BaseCommand
+
+
+class AskNameCommand(BaseCommand):
+    name = "ask_name"
+    description = "Демо ожидания сообщения"
+
+    async def execute(self, message: Message) -> None:
+        prompt = await message.answer("Напиши имя в течение 15 секунд")
+
+        async def on_timeout() -> None:
+            await prompt.answer("⏰ Вы не успели ответить")
+
+        result = await self.client.wait_for_message(
+            chat_id=message.chat.id,
+            user_id=message.from_user.id,
+            timeout=15,
+            on_timeout=on_timeout,
+        )
+
+        if result and result.text:
+            await message.answer(f"Принял: {result.text}")
+```
 
 ---
 
-## Работа с БД: entity + repository + использование
+## Работа с БД: entities и services
 
-## 1) Создать entity
+### Где создавать entities
 
-Пример существующей entity: `database/entities/user.py`
+Entity-модели находятся в директории:
+
+- `database/entities/`
+
+Создайте новый файл, например `database/entities/notification_rule.py`:
 
 ```python
 from sqlalchemy import String
@@ -248,55 +259,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.database.base import BaseEntity
 
 
-class User(BaseEntity):
-    __tablename__ = "users"
+class NotificationRuleEntity(BaseEntity):
+    __tablename__ = "notification_rules"
 
-    tg_id: Mapped[int] = mapped_column(unique=True, index=True)
-    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    keyword: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 ```
 
-Шаблон новой entity:
+### Где писать сервисы для entities
 
-```python
-from sqlalchemy.orm import Mapped, mapped_column
+Сервисы запросов к БД находятся в:
 
-from core.database.base import BaseEntity
+- `database/services/`
 
-
-class Workout(BaseEntity):
-    __tablename__ = "workouts"
-
-    title: Mapped[str] = mapped_column(nullable=False)
-    user_tg_id: Mapped[int] = mapped_column(index=True)
-```
-
-## 2) Создать database service
-
-Пример: `database/services/subscribers.py`
-
-```python
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.interfaces import ORMOption
-
-from database.entities.subscribers import SubscriberEntity
-
-
-async def get_subscriber(
-    session: AsyncSession,
-    tg_id: int,
-    *,
-    options: tuple[ORMOption, ...] = (),
-) -> SubscriberEntity | None:
-    query = select(SubscriberEntity).where(SubscriberEntity.tg_id == tg_id)
-    if options:
-        query = query.options(*options)
-    return await session.scalar(query)
-```
-
-> Важно: внутри `database/services` не делайте `session.commit()`. Управляйте транзакцией снаружи через `async with session.begin():`.
-
-Шаблон для новой entity:
+Пример файла `database/services/notification_rules.py`:
 
 ```python
 from collections.abc import Sequence
@@ -304,98 +280,77 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.entities.workout import Workout
+from database.entities.notification_rule import NotificationRuleEntity
 
 
-async def get_workouts(session: AsyncSession) -> Sequence[Workout]:
-    result = await session.scalars(select(Workout))
+async def get_rules(session: AsyncSession) -> Sequence[NotificationRuleEntity]:
+    result = await session.scalars(select(NotificationRuleEntity))
     return result.all()
 ```
 
-## 3) Пример использования в команде
+Рекомендуемый подход:
 
-Файл: `commands/db_demo.py`
-
-```python
-from aiogram.types import Message
-
-from sqlalchemy import select
-
-from core.implementations.command import BaseCommand
-from database.entities.user import User
-
-
-class DbDemoCommand(BaseCommand):
-    name = "db_demo"
-    description = "Пример работы с БД"
-
-    async def execute(self, message: Message) -> None:
-        async with self.client.db.session() as session:
-            user = await session.scalar(
-                select(User).where(User.tg_id == message.from_user.id)
-            )
-            if not user:
-                user = User(tg_id=message.from_user.id, username=message.from_user.username)
-                session.add(user)
-                await session.commit()
-                await session.refresh(user)
-                await message.answer(f"Создан пользователь с id={user.id}")
-                return
-
-            await message.answer(f"Пользователь найден: id={user.id}, username={user.username}")
-```
+- в `database/services/*` держать только запросы и CRUD-логику;
+- управление транзакциями (`async with db.begin()`) делать в месте вызова (команда/кнопка/джоба).
 
 ---
 
-## Alembic: миграции БД
+## Миграции Alembic
 
-## Применить миграции
+### Создать ревизию
+
+```bash
+poetry run alembic revision -m "create notification_rules"
+```
+
+или с автогенерацией:
+
+```bash
+poetry run alembic revision --autogenerate -m "add notification_rules table"
+```
+
+### Применить все миграции
 
 ```bash
 poetry run alembic upgrade head
 ```
 
-## Откатить последнюю миграцию
+### Откатить последнюю миграцию
 
 ```bash
 poetry run alembic downgrade -1
 ```
 
-## Создать новую миграцию
-
-```bash
-poetry run alembic revision -m "create workouts"
-```
-
-или автогенерацией:
-
-```bash
-poetry run alembic revision --autogenerate -m "add workouts table"
-```
-
-## Важно для autogenerate
-
-В проекте настроен авто-импорт всех модулей из `database/entities/` внутри `alembic/env.py`, поэтому вручную добавлять импорт каждой новой модели не нужно.
-
-Также `alembic/env.py` читает `.env` через `python-dotenv` и, если задан `DATABASE_URL`, подставляет его в `sqlalchemy.url` (поверх значения из `alembic.ini`).
-
-После генерации проверьте содержимое файла в `alembic/versions/` и примените:
-
-```bash
-poetry run alembic upgrade head
-```
+> `alembic/env.py` автоматически импортирует модели из `database/entities/`, поэтому новые entity будут участвовать в autogenerate.
 
 ---
 
-## Полезные команды
+## Небольшие практические рекомендации
+
+- Держите `callback_data` коротким и уникальным.
+- Для сложных сценариев кнопок используйте префиксы (`settings:...`, `topic:...`).
+- Если команда запускает «мастер» (цепочку шагов), используйте waiter c timeout и `on_timeout`.
+- Для модулей лучше нейминг по домену: `commands/subscriptions/...`, `buttons/topics/...`, `database/services/subscribers.py`.
+- После добавления новой entity почти всегда нужны:
+  1. файл entity;
+  2. файл service;
+  3. миграция Alembic;
+  4. использование в командах/кнопках/джобах.
+
+---
+
+## Часто используемые команды
 
 ```bash
-# установить зависимости
+# Установка зависимостей
 poetry install
 
-# запустить бота
+# Запуск бота
 poetry run python app.py
 
-# применить миграции
+# Новая миграция
+poetry run alembic revision -m "message"
+
+# Применить миграции
 poetry run alembic upgrade head
 ```
