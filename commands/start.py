@@ -2,6 +2,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from core.implementations.command import BaseCommand
+from database.services.subscribers import ensure_subscriber
 
 
 class StartCommand(BaseCommand):
@@ -9,6 +10,10 @@ class StartCommand(BaseCommand):
     description = 'Запустить бота'
 
     async def execute(self, message: Message) -> None:
+        async with self.client.db.session() as db:
+            async with db.begin():
+                await ensure_subscriber(db, message.chat.id)
+
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="📋 Выбрать тематики стримов", callback_data="choose_stream_topics")]
