@@ -14,22 +14,23 @@ class ChooseStreamTopicsButton(BaseButton):
 
     async def execute(self, callback: CallbackQuery) -> None:
         async with self.client.db.session() as db:
+            tg_id = callback.message.chat.id
+
             async with db.begin():
-                tg_id = callback.message.chat.id
                 await subscribers.ensure_subscriber(db, tg_id)
 
-                subscriber_item = await subscribers.get_subscriber(
-                    db,
-                    tg_id,
-                    options=[selectinload(SubscriberEntity.stream_topics)],
-                )
-                if not subscriber_item:
-                    await callback.answer("Ошибка загрузки подписчика", show_alert=True)
-                    return
+            subscriber_item = await subscribers.get_subscriber(
+                db,
+                tg_id,
+                options=[selectinload(SubscriberEntity.stream_topics)],
+            )
+            if not subscriber_item:
+                await callback.answer("Ошибка загрузки подписчика", show_alert=True)
+                return
 
-                topics = await stream_topics.get_stream_topics(db)
+            topics = await stream_topics.get_stream_topics(db)
 
-                keyboard = InlineKeyboardMarkup(inline_keyboard=get_select_topics(subscriber_item, topics))
+            keyboard = InlineKeyboardMarkup(inline_keyboard=get_select_topics(subscriber_item, topics))
 
         await callback.message.edit_text(
             "📢 Выбор тематик стримов!\n\n"
