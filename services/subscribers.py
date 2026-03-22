@@ -4,19 +4,7 @@ from aiogram.types import InlineKeyboardButton
 
 from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
-from database.repos import Repositories
 
-
-async def get_subscriber(session, tg_id):
-    repos = Repositories(session)
-
-    user = await repos.subscribers.get_where(SubscriberEntity.tg_id == tg_id)
-
-    if not user:
-        user = SubscriberEntity(tg_id=tg_id)
-        user = await repos.subscribers.create(user)
-
-    return user
 
 def get_select_topics(subscriber: SubscriberEntity, topics: Sequence[StreamTopicEntity]):
     buttons = []

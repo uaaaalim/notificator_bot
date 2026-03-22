@@ -270,37 +270,47 @@ class Workout(BaseEntity):
     user_tg_id: Mapped[int] = mapped_column(index=True)
 ```
 
-## 2) Создать repository
+## 2) Создать database service
 
-Пример существующего репозитория: `database/repos/user_repo.py`
+Пример: `database/services/subscribers.py`
 
 ```python
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.interfaces import ORMOption
 
-from core.database.crud import CRUDRepository
-from database.entities.user import User
+from database.entities.subscribers import SubscriberEntity
 
 
-class UserRepository(CRUDRepository[User]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(User, session)
+async def get_subscriber(
+    session: AsyncSession,
+    tg_id: int,
+    *,
+    options: tuple[ORMOption, ...] = (),
+) -> SubscriberEntity | None:
+    query = select(SubscriberEntity).where(SubscriberEntity.tg_id == tg_id)
+    if options:
+        query = query.options(*options)
+    return await session.scalar(query)
 ```
+
+> Важно: внутри `database/services` не делайте `session.commit()`. Управляйте транзакцией снаружи через `async with session.begin():`.
 
 Шаблон для новой entity:
 
 ```python
+from collections.abc import Sequence
+
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.database.crud import CRUDRepository
 from database.entities.workout import Workout
 
 
-class WorkoutRepository(CRUDRepository[Workout]):
-    def __init__(self, session: AsyncSession) -> None:
-        super().__init__(Workout, session)
+async def get_workouts(session: AsyncSession) -> Sequence[Workout]:
+    result = await session.scalars(select(Workout))
+    return result.all()
 ```
-
-Не забудьте добавить репозиторий в агрегатор `database/__init__.py`, как это сделано для `users`.
 
 ## 3) Пример использования в команде
 
@@ -309,8 +319,9 @@ class WorkoutRepository(CRUDRepository[Workout]):
 ```python
 from aiogram.types import Message
 
+from sqlalchemy import select
+
 from core.implementations.command import BaseCommand
-from database import Repositories
 from database.entities.user import User
 
 
@@ -320,11 +331,14 @@ class DbDemoCommand(BaseCommand):
 
     async def execute(self, message: Message) -> None:
         async with self.client.db.session() as session:
-            repos = Repositories(session)
-            user = await repos.users.get_where(User.tg_id == message.from_user.id)
+            user = await session.scalar(
+                select(User).where(User.tg_id == message.from_user.id)
+            )
             if not user:
                 user = User(tg_id=message.from_user.id, username=message.from_user.username)
-                user = await repos.users.create(user)
+                session.add(user)
+                await session.commit()
+                await session.refresh(user)
                 await message.answer(f"Создан пользователь с id={user.id}")
                 return
 

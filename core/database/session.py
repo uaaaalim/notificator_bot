@@ -5,8 +5,22 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 
 class Database:
-    def __init__(self, database_url: str) -> None:
-        self.engine = create_async_engine(database_url, echo=False)
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        pool_size: int = 20,
+        max_overflow: int = 40,
+        pool_recycle: int = 1800,
+    ) -> None:
+        self.engine = create_async_engine(
+            database_url,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_recycle=pool_recycle,
+        )
         self.session_factory = async_sessionmaker(
             self.engine,
             expire_on_commit=False,
