@@ -2,7 +2,9 @@ from aiogram.enums import ParseMode
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from core.implementations.command import BaseCommand, CommandPermissionLevel
+from database.entities.stream_topic import StreamTopicEntity
 from database.services import stream_topics
+from database.services.stream_topics import create_stream_topic
 
 
 class AdminCommand(BaseCommand):
@@ -95,6 +97,7 @@ class AdminCommand(BaseCommand):
 
             if callback.data == "admin:home":
                 await callback.answer()
+                await self.client.bot.delete_message(message.chat.id, prompt_message_id)
                 await self._show_main_menu(message)
                 return
 
@@ -108,11 +111,9 @@ class AdminCommand(BaseCommand):
             text=(
                 "➕ <b>Добавление тематики</b>\n\n"
                 "Отправьте сообщение в формате:\n"
-                "<code>Название; триггер1, триггер2; платформы; active</code>\n\n"
+                "<code>Название; триггер1, триггер2</code>\n\n"
                 "Пример:\n"
-                "<code>Just Chatting; общение, чат; both; yes</code>\n\n"
-                "Платформы: <code>youtube</code>, <code>twitch</code>, <code>both</code>, <code>none</code>\n"
-                "active: <code>yes/no</code> (по умолчанию yes)"
+                "<code>Just Chatting; общение, чат</code>\n\n"
             ),
         )
 
@@ -121,25 +122,12 @@ class AdminCommand(BaseCommand):
             return
 
         parts = [part.strip() for part in reply.text.split(";")]
-        if len(parts) < 3:
-            await reply.reply("❌ Неверный формат. Нужно минимум 3 поля, разделённых ';'")
+        if len(parts) < 2:
+            await reply.reply("❌ Неверный формат. Нужно минимум 2 поля, разделённых ';'")
             return
 
         name = parts[0]
         triggers = parts[1] or None
-        platform = parts[2].lower()
-        active = (parts[3].lower() if len(parts) > 3 and parts[3] else "yes")
-
-        is_youtube = platform in {"youtube", "both"}
-        is_twitch = platform in {"twitch", "both"}
-        if platform not in {"youtube", "twitch", "both", "none"}:
-            await reply.reply("❌ Платформа должна быть одной из: youtube, twitch, both, none.")
-            return
-
-        enabled = active in {"1", "true", "yes", "y", "on"}
-        if active not in {"1", "true", "yes", "y", "on", "0", "false", "no", "n", "off"}:
-            await reply.reply("❌ Поле active должно быть yes/no.")
-            return
 
         async with self.client.db.session() as db:
             async with db.begin():
@@ -147,9 +135,9 @@ class AdminCommand(BaseCommand):
                     db,
                     name=name,
                     triggers=triggers,
-                    enabled=enabled,
-                    is_youtube=is_youtube,
-                    is_twitch=is_twitch,
+                    enabled=True,
+                    is_youtube=False,
+                    is_twitch=False
                 )
 
         await reply.reply(f"✅ Тематика добавлена. ID: {topic.id}")
@@ -186,29 +174,37 @@ class AdminCommand(BaseCommand):
 
     async def _build_topics_text(self) -> str:
         async with self.client.db.session() as db:
-            topics = await stream_topics.get_stream_topics(db)
+            async with db.begin():
+                topics = await stream_topics.get_stream_topics(db)
 
-        if not topics:
-            return (
-                "📃 <b>Управление тематиками стримов</b>\n\n"
-                "Список тематик пуст."
-            )
+                if len(topics) == 0:
+                    _new_topics = [
+                        StreamTopicEntity(name="📺 YouTube", triggers=None, is_youtube=True, enabled=True, is_twitch=False),
+                        StreamTopicEntity(name="💜 Twitch", triggers=None, is_youtube=False, enabled=True, is_twitch=True),
+                        StreamTopicEntity(name="🎯 Основной стрим", triggers=None, is_youtube=False, enabled=True,
+                                          is_twitch=False)
+                    ]
 
-        lines = ["📃 <b>Управление тематиками стримов</b>", "", "Актуальный список тематик:"]
+                    topics = []
+
+                    for topic in _new_topics:
+                        t = await create_stream_topic(
+                            db,
+                            name=topic.name,
+                            triggers=topic.triggers,
+                            is_youtube=topic.is_youtube,
+                            is_twitch=topic.is_twitch,
+                            enabled=topic.enabled
+                        )
+                        topics.append(t)
+
+        lines = ["📃 <b>Управление тематиками стримов</b>\n\nАктуальный список тематик:"]
         for topic in topics:
-            platforms = []
-            if topic.is_youtube:
-                platforms.append("YouTube")
-            if topic.is_twitch:
-                platforms.append("Twitch")
-            platform_text = ", ".join(platforms) if platforms else "Не выбраны"
             lines.extend([
                 "",
                 f"• <b>ID:</b> {topic.id}",
                 f"  <b>Название:</b> {topic.name}",
                 f"  <b>Триггеры:</b> {topic.triggers or '—'}",
-                f"  <b>Активна:</b> {'Да' if topic.enabled else 'Нет'}",
-                f"  <b>Платформы:</b> {platform_text}",
             ])
 
         return "\n".join(lines)

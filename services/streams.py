@@ -1,9 +1,17 @@
 from collections.abc import Sequence
 
-from aiogram.types import InlineKeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
+
+
+def get_select_topic_keyboard():
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Выбрать тематики стримов", callback_data="choose_stream_topics")]
+        ]
+    )
 
 
 def get_select_topics(subscriber: SubscriberEntity, topics: Sequence[StreamTopicEntity]):

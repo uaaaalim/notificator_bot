@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
+from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
 
 
