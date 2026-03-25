@@ -18,14 +18,14 @@ class BaseSchedule:
     max_retries = 3
 
     def __init__(self, client: "BotClient") -> None:
-        self.client = client
+        self.client: "BotClient" = client
         self.status = ScheduleStatus.IDLE
         self.error: str | None = None
 
     async def run_forever(self) -> None:
         while True:
-            await self.run_once()
             await asyncio.sleep(self.delay_seconds)
+            await self.run_once()
 
     async def run_once(self) -> None:
         self.status = ScheduleStatus.RUNNING
