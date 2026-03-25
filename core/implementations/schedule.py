@@ -24,8 +24,8 @@ class BaseSchedule:
 
     async def run_forever(self) -> None:
         while True:
-            await asyncio.sleep(self.delay_seconds)
             await self.run_once()
+            await asyncio.sleep(self.delay_seconds)
 
     async def run_once(self) -> None:
         self.status = ScheduleStatus.RUNNING
@@ -40,6 +40,12 @@ class BaseSchedule:
                 retry += 1
                 self.status = ScheduleStatus.ERRORED
                 self.error = str(exc)
+
+                self.client.logger.error(
+                    f"[schedule] An error occurred in {self.__class__.__name__}:",
+                    exc
+                )
+
                 if retry > self.max_retries:
                     return
 
