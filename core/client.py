@@ -1,4 +1,6 @@
 import asyncio
+
+import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, Message
@@ -28,6 +30,7 @@ class BotClient:
             max_overflow=self.config.db_max_overflow,
             pool_recycle=self.config.db_pool_recycle,
         )
+        self.http_session = aiohttp.ClientSession()
 
         self.commands = load_instances_from_directory("commands", "commands", BaseCommand, self)
         self.buttons = load_instances_from_directory("buttons", "buttons", BaseButton, self)
@@ -101,5 +104,6 @@ class BotClient:
 
     async def shutdown(self) -> None:
         await self.db.dispose()
+        await self.http_session.close()
         await self.bot.session.close()
         self.logger.info("Bot shutdown complete")
