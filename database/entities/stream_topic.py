@@ -13,6 +13,9 @@ class StreamTopicEntity(BaseEntity):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_youtube: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_twitch: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_main: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
+    is_night: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)
+
     subscribers: Mapped[list["SubscriberEntity"]] = relationship(
         secondary=subscriber_stream_topics,
         back_populates="stream_topics",

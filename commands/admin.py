@@ -49,7 +49,7 @@ class AdminCommand(BaseCommand):
 
         elif callback.data == "admin:announcements":
             await callback.answer()
-            await prompt.edit_text("announcements")
+            await prompt.edit_text("announcements") # todo: finish
 
     async def _show_topics_menu(self, message: Message, prompt_message_id: int) -> None:
         while True:
@@ -179,10 +179,10 @@ class AdminCommand(BaseCommand):
 
                 if len(topics) == 0:
                     _new_topics = [
-                        StreamTopicEntity(name="📺 YouTube", triggers=None, is_youtube=True, enabled=True, is_twitch=False),
-                        StreamTopicEntity(name="💜 Twitch", triggers=None, is_youtube=False, enabled=True, is_twitch=True),
-                        StreamTopicEntity(name="🎯 Основной стрим", triggers=None, is_youtube=False, enabled=True,
-                                          is_twitch=False)
+                        StreamTopicEntity(name="📺 YouTube",is_youtube=True),
+                        StreamTopicEntity(name="💜 Twitch", is_twitch=True),
+                        StreamTopicEntity(name="🎯 Основной стрим", is_main=True),
+                        StreamTopicEntity(name="🌙 Ночной стрим", is_night=True)
                     ]
 
                     topics = []
