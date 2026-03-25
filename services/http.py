@@ -23,8 +23,6 @@ async def request_json(
     host = parsed.netloc
     path = parsed.path.lstrip("/")
 
-    print(1)
-
     for attempt in range(1, attempts + 1):
         try:
             async with session.request(
