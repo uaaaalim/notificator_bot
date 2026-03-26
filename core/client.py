@@ -21,7 +21,7 @@ class BotClient:
         self.config = load_config()
         self.logger = setup_logger(self.config.log_level)
 
-        self.bot = Bot(self.config.bot_token)
+        self.bot: Bot = Bot(self.config.bot_token)
         self.dp = Dispatcher()
         self.waiter = EventWaiter()
         self.db = Database(
