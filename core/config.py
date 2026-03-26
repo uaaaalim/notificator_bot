@@ -9,13 +9,14 @@ class Config:
             youtube_api_key: str, youtube_channel: str,
             twitch_client_id: str, twitch_client_secret: str, twitch_channel_name: str,
             log_level: str = "INFO",
-            author_id: str | int = None, owner_ids: list[str] = None,
+            author_id: str | int = None, author_channel_id: str | int = None, owner_ids: list[str] = None,
             db_pool_size: int = 20, db_max_overflow: int = 40, db_pool_recycle: int = 1800
     ) -> None:
         self.bot_token = bot_token
         self.database_url = database_url
         self.log_level = log_level
         self.author_id = author_id
+        self.author_channel_id = author_channel_id
         self.owner_ids = map(int, owner_ids) or []
         self.db_pool_size = db_pool_size
         self.db_max_overflow = db_max_overflow
@@ -40,6 +41,8 @@ def load_config() -> Config:
     twitch_client_secret = os.getenv("TWITCH_CLIENT_SECRET", "")
     twitch_channel_name = os.getenv("TWITCH_CHANNEL_NAME", "")
 
+    author_id = os.getenv("AUTHOR_ID")
+
     missing = [
         name for name, value in {
             "BOT_TOKEN": bot_token,
@@ -49,15 +52,16 @@ def load_config() -> Config:
             "TWITCH_CLIENT_ID": twitch_client_id,
             "TWITCH_CLIENT_SECRET": twitch_client_secret,
             "TWITCH_CHANNEL_NAME": twitch_channel_name,
+            "AUTHOR_ID": author_id
         }.items()
         if not value
     ]
 
     if missing:
         raise ValueError(f"Missing env variables: {', '.join(missing)}")
-
-    author_id = os.getenv("AUTHOR_ID")
     owner_ids = os.getenv("OWNER_IDS").split(",")
+
+    author_channel_id = os.getenv("AUTHOR_CHANNEL_ID")
 
     log_level = os.getenv("LOG_LEVEL", "INFO")
     db_pool_size = int(os.getenv("DB_POOL_SIZE", "20"))
