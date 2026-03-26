@@ -5,8 +5,21 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.interfaces import ORMOption
 
-from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
+
+
+async def get_subscribers(
+    session: AsyncSession,
+    *,
+    options: Sequence[ORMOption] = (),
+) -> list[SubscriberEntity]:
+    query = select(SubscriberEntity)
+
+    if options:
+        query = query.options(*options)
+
+    result = await session.scalars(query)
+    return list(result.all())
 
 
 async def get_subscriber(
