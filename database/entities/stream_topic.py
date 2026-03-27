@@ -9,6 +9,7 @@ class StreamTopicEntity(BaseEntity):
     __tablename__ = "stream_topics"
 
     name: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+    emoji: Mapped[str] = mapped_column(VARCHAR(255), nullable=True)
     triggers: Mapped[str | None] = mapped_column(String, nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     is_youtube: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -21,3 +22,9 @@ class StreamTopicEntity(BaseEntity):
         back_populates="stream_topics",
         lazy="raise",
     )
+
+    def get_emoji(self) -> str:
+        if self.emoji.isdigit():
+            return f'<tg-emoji emoji-id="{self.emoji}">⚡️</tg-emoji>'
+        else:
+            return self.emoji

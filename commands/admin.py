@@ -5,6 +5,7 @@ from core.implementations.command import BaseCommand, CommandPermissionLevel
 from database.entities.stream_topic import StreamTopicEntity
 from database.services import stream_topics
 from database.services.stream_topics import create_stream_topic
+from services.emojis import YOUTUBE_EMOJI_ID, TWITCH_EMOJI_ID, STAR_EMOJI_ID, MOON_EMOJI_ID
 
 
 class AdminCommand(BaseCommand):
@@ -179,10 +180,10 @@ class AdminCommand(BaseCommand):
 
                 if len(topics) == 0:
                     _new_topics = [
-                        StreamTopicEntity(name="📺 YouTube",is_youtube=True),
-                        StreamTopicEntity(name="💜 Twitch", is_twitch=True),
-                        StreamTopicEntity(name="🎯 Основной стрим", is_main=True),
-                        StreamTopicEntity(name="🌙 Ночной стрим", is_night=True)
+                        StreamTopicEntity(name="YouTube", is_youtube=True, emoji=YOUTUBE_EMOJI_ID),
+                        StreamTopicEntity(name="Twitch", is_twitch=True, emoji=TWITCH_EMOJI_ID),
+                        StreamTopicEntity(name="Основной стрим", is_main=True, emoji=STAR_EMOJI_ID),
+                        StreamTopicEntity(name="Ночной стрим", is_night=True, emoji=MOON_EMOJI_ID)
                     ]
 
                     topics = []
