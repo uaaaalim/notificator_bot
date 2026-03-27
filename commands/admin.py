@@ -1,11 +1,11 @@
-from aiogram.enums import ParseMode
+from aiogram.enums import ParseMode, MessageEntityType
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from core.implementations.command import BaseCommand, CommandPermissionLevel
 from database.entities.stream_topic import StreamTopicEntity
 from database.services import stream_topics
 from database.services.stream_topics import create_stream_topic
-from services.emojis import YOUTUBE_EMOJI_ID, TWITCH_EMOJI_ID, STAR_EMOJI_ID, MOON_EMOJI_ID
+from services.emojis import YOUTUBE_EMOJI_ID, TWITCH_EMOJI_ID, STAR_EMOJI_ID, MOON_EMOJI_ID, is_custom_emoji
 
 
 class AdminCommand(BaseCommand):
@@ -112,9 +112,11 @@ class AdminCommand(BaseCommand):
             text=(
                 "➕ <b>Добавление тематики</b>\n\n"
                 "Отправьте сообщение в формате:\n"
+                "<code>Название; эмодзи; триггер1, триггер2</code>\n\n"
+                "Эмодзи можно не указывать:\n"
                 "<code>Название; триггер1, триггер2</code>\n\n"
                 "Пример:\n"
-                "<code>Just Chatting; общение, чат</code>\n\n"
+                "<code>Just Chatting; 🔥; общение, чат</code>\n\n"
             ),
         )
 
@@ -128,13 +130,19 @@ class AdminCommand(BaseCommand):
             return
 
         name = parts[0]
-        triggers = parts[1] or None
+        emoji = None
+        if len(parts) >= 3:
+            emoji = self._resolve_topic_emoji(reply)
+            triggers = ";".join(parts[2:]).strip() or None
+        else:
+            triggers = parts[1] or None
 
         async with self.client.db.session() as db:
             async with db.begin():
                 topic = await stream_topics.create_stream_topic(
                     db,
                     name=name,
+                    emoji=emoji,
                     triggers=triggers,
                     enabled=True,
                     is_youtube=False,
@@ -142,6 +150,43 @@ class AdminCommand(BaseCommand):
                 )
 
         await reply.reply(f"✅ Тематика добавлена. ID: {topic.id}")
+
+    @staticmethod
+    def _resolve_topic_emoji(reply: Message) -> str | None:
+        if not reply.text:
+            return None
+
+        first_delimiter = reply.text.find(";")
+        second_delimiter = reply.text.find(";", first_delimiter + 1)
+
+        if first_delimiter == -1 or second_delimiter == -1:
+            return None
+
+        start = first_delimiter + 1
+        end = second_delimiter
+
+        while start < end and reply.text[start].isspace():
+            start += 1
+        while end > start and reply.text[end - 1].isspace():
+            end -= 1
+
+        emoji = reply.text[start:end]
+        if not emoji:
+            return None
+
+        if is_custom_emoji(emoji):
+            return emoji
+
+        for entity in reply.entities or []:
+            if entity.type != MessageEntityType.CUSTOM_EMOJI:
+                continue
+
+            entity_start = entity.offset
+            entity_end = entity.offset + entity.length
+            if entity_start >= start and entity_end <= end and entity.custom_emoji_id:
+                return entity.custom_emoji_id
+
+        return emoji
 
     async def _delete_topic_flow(self, message: Message, prompt_message_id: int) -> None:
         await self.client.bot.edit_message_text(
@@ -192,10 +237,13 @@ class AdminCommand(BaseCommand):
                         t = await create_stream_topic(
                             db,
                             name=topic.name,
+                            emoji=topic.emoji,
                             triggers=topic.triggers,
                             is_youtube=topic.is_youtube,
                             is_twitch=topic.is_twitch,
-                            enabled=topic.enabled
+                            is_main=topic.is_main,
+                            is_night=topic.is_night,
+                            enabled=topic.enabled,
                         )
                         topics.append(t)
 
@@ -205,6 +253,7 @@ class AdminCommand(BaseCommand):
                 "",
                 f"• <b>ID:</b> {topic.id}",
                 f"  <b>Название:</b> {topic.name}",
+                f"  <b>Эмодзи:</b> {topic.get_emoji() or '—'}",
                 f"  <b>Триггеры:</b> {topic.triggers or '—'}",
             ])
 

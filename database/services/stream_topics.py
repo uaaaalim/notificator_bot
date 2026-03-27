@@ -15,17 +15,23 @@ async def create_stream_topic(
     session: AsyncSession,
     *,
     name: str,
+    emoji: str | None = None,
     triggers: str | None = None,
     enabled: bool = True,
     is_youtube: bool = False,
     is_twitch: bool = False,
+    is_main: bool = False,
+    is_night: bool = False,
 ) -> StreamTopicEntity:
     topic = StreamTopicEntity(
         name=name,
+        emoji=emoji,
         triggers=triggers,
         enabled=enabled,
         is_youtube=is_youtube,
         is_twitch=is_twitch,
+        is_main=is_main,
+        is_night=is_night,
     )
     session.add(topic)
     await session.flush()
