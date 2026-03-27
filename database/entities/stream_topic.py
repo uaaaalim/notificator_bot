@@ -3,6 +3,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.database.base import BaseEntity
 from database.entities.subscribers import subscriber_stream_topics
+from services.emojis import render_emoji
 
 
 class StreamTopicEntity(BaseEntity):
@@ -24,7 +25,4 @@ class StreamTopicEntity(BaseEntity):
     )
 
     def get_emoji(self) -> str:
-        if self.emoji.isdigit():
-            return f'<tg-emoji emoji-id="{self.emoji}">⚡️</tg-emoji>'
-        else:
-            return self.emoji
+        return render_emoji(self.emoji, "⚡️") if self.emoji else ""
