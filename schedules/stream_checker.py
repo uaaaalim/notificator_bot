@@ -12,6 +12,8 @@ from database.entities.stream_topic import StreamTopicEntity
 from database.services.configs import get_config
 from database.services.stream_topics import get_stream_topics
 from database.services.subscribers import get_subscribers
+from services.emojis import live_emojis, LIGHTENING_EMOJI, YOUTUBE_EMOJI_ID, TWITCH_EMOJI_ID, YOUTUBE_EMOJI, \
+    TWITCH_EMOJI, LIGHTENING_EMOJI_ID
 from services.http import request_json
 
 
@@ -295,6 +297,7 @@ class StreamCheckerSchedule(BaseSchedule):
     LIVE_DELAY = 10 * 60
     WAIT_SECOND_PLATFORM_DELAY = 30
     WAIT_SECOND_PLATFORM_ATTEMPTS = 5
+    WAIT_TOPICS_FROM_AUTHOR_TIMEOUT = 180
 
     def __init__(self, client: "BotClient"):
         super().__init__(client)
@@ -384,6 +387,9 @@ class StreamCheckerSchedule(BaseSchedule):
 
         stream_title = priority_stream.title.lower()
         for topic in topics:
+            if not topic.triggers:
+                continue
+
             for trigger in topic.triggers.split(", "):
                 if trigger.lower() in stream_title and topic not in recognized_topics:
                     recognized_topics.append(topic)
@@ -394,13 +400,13 @@ class StreamCheckerSchedule(BaseSchedule):
         priority_stream = self._get_priority_stream()
 
         notify_data = [
-            f"⚡ <b>{priority_stream.title}</b>\n",
+            f"{LIGHTENING_EMOJI} <b>{priority_stream.title}</b>\n",
         ]
         for stream in self._cached_live:
             if stream.platform == StreamPlatform.YOUTUBE:
-                notify_data.append(f"- YouTube: {stream.link}")
+                notify_data.append(f"{YOUTUBE_EMOJI} <b><a href=\"{stream.link}\">Смотри сейчас на YouTube!</a></b>")
             elif stream.platform == StreamPlatform.TWITCH:
-                notify_data.append(f"- Twitch: {stream.link}")
+                notify_data.append(f"{TWITCH_EMOJI} <b><a href=\"{stream.link}\">Смотри сейчас на Twitch!</a></b>")
 
         return notify_data
 
@@ -408,7 +414,7 @@ class StreamCheckerSchedule(BaseSchedule):
             self,
             recognized_topics: list[StreamTopicEntity]
     ) -> str:
-        return ("🔔 У вас, вероятнее всего, началась <b>ПРЯМАЯ ТРАНСЛЯЦИЯ</b>\n\n"
+        return (f"{live_emojis()}\n\n"
                  f"{'\n'.join(self._get_notify_data())}\n\n"
                  "Определенные мною теги стрима:\n"
                  f"{'\n'.join(
@@ -431,7 +437,7 @@ class StreamCheckerSchedule(BaseSchedule):
 
             buttons.append([InlineKeyboardButton(text=text, callback_data="notify_tag:" + str(topic.id))])
 
-        buttons.append([InlineKeyboardButton(text="📃 Сохранить", callback_data="notify_tag:save")])
+        buttons.append([InlineKeyboardButton(text="🔔 Сохранить", callback_data="notify_tag:save")])
 
         return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -441,18 +447,20 @@ class StreamCheckerSchedule(BaseSchedule):
         for stream in self._cached_live:
             if stream.platform == StreamPlatform.YOUTUBE:
                 notify_keyboard.inline_keyboard.append([
-                    InlineKeyboardButton(text="📺 YouTube", url=stream.link)
+                    InlineKeyboardButton(text="Смотри сейчас на YouTube!", url=stream.link,
+                                         icon_custom_emoji_id=YOUTUBE_EMOJI_ID)
                 ])
             elif stream.platform == StreamPlatform.TWITCH:
                 notify_keyboard.inline_keyboard.append([
-                    InlineKeyboardButton(text="💜 Twitch", url=stream.link)
+                    InlineKeyboardButton(text="Смотри сейчас на Twitch!", url=stream.link,
+                                         icon_custom_emoji_id=TWITCH_EMOJI_ID)
                 ])
 
         return notify_keyboard
 
     def _build_notify_message(self, selected_topics: list[StreamTopicEntity]) -> list[str]:
         message = [
-            "🔔 Началась <b>прямая трансляция</b>!\n",
+            f"{live_emojis()}\n",
             f"{'\n'.join(self._get_notify_data())}\n"
         ]
 
@@ -493,7 +501,7 @@ class StreamCheckerSchedule(BaseSchedule):
 
         async def on_timeout():
             await prompt.edit_text(
-                text="🔔 Идет <b>ПРЯМАЯ ТРАНСЛЯЦИЯ</b>\n\n"
+                text=f"{live_emojis()}\n\n"
                      f"{'\n'.join(self._get_notify_data())}\n\n"
                      "Утвержденные теги стрима:\n"
                      f"{'\n'.join(
@@ -510,9 +518,9 @@ class StreamCheckerSchedule(BaseSchedule):
                 break
 
             callback = await self.client.wait_for_button(
-                chat_id=content_author_id,
+                chat_id=prompt.chat.id,
                 user_id=content_author_id,
-                timeout=180,
+                timeout=self.WAIT_TOPICS_FROM_AUTHOR_TIMEOUT,
                 message_id=prompt.message_id,
                 on_timeout=on_timeout
             )
@@ -550,10 +558,12 @@ class StreamCheckerSchedule(BaseSchedule):
 
                 me = await self.client.bot.get_me()
 
-                notify_message.append("📺 Вы можете получать уведомления <b>лично</b>! Жми кнопку ниже!")
+                notify_message.append(
+                    f"{LIGHTENING_EMOJI} Вы можете получать уведомления <b>лично</b>! Жми кнопку ниже!"
+                )
                 notify_keyboard.inline_keyboard.append([
                     InlineKeyboardButton(
-                        text="🔔 Получать уведомления лично!", url="https://t.me/" + me.username
+                        text=f"{LIGHTENING_EMOJI} Получать уведомления лично!", url="https://t.me/" + me.username
                     )
                 ])
 
@@ -562,7 +572,8 @@ class StreamCheckerSchedule(BaseSchedule):
                         channel_id,
                         text='\n'.join(notify_message),
                         reply_markup=notify_keyboard,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        disable_web_page_preview=True
                     )
                     self.client.logger.info(
                         f"[stream_checker] The announcement has been sent to channel {channel_id}"
@@ -587,7 +598,8 @@ class StreamCheckerSchedule(BaseSchedule):
             notify_message.append("🔔 Вам пришло уведомление, потому что вы подписаны на тематики стримов!")
             notify_keyboard.inline_keyboard.append([
                 InlineKeyboardButton(
-                    text="📃 Изменить тематики стримов", callback_data="choose_stream_topics"
+                    text="Изменить тематики стримов", callback_data="choose_stream_topics",
+                    icon_custom_emoji_id=LIGHTENING_EMOJI_ID
                 )
             ])
 
@@ -600,7 +612,8 @@ class StreamCheckerSchedule(BaseSchedule):
                         subscriber.tg_id,
                         text='\n'.join(notify_message),
                         reply_markup=notify_keyboard,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        disable_web_page_preview=True
                     )
                     sent += 1
                 except TelegramForbiddenError:

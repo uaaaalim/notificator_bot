@@ -4,12 +4,14 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
+from services.emojis import LIGHTENING_EMOJI_ID
 
 
 def get_select_topic_keyboard():
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📋 Выбрать тематики стримов", callback_data="choose_stream_topics")]
+            [InlineKeyboardButton(text="Выбрать тематики стримов", callback_data="choose_stream_topics",
+                                  icon_custom_emoji_id=LIGHTENING_EMOJI_ID)],
         ]
     )
 
