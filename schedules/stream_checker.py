@@ -13,7 +13,7 @@ from database.services.configs import get_config
 from database.services.stream_topics import get_stream_topics
 from database.services.subscribers import get_subscribers
 from services.emojis import live_emojis, LIGHTENING_EMOJI, YOUTUBE_EMOJI_ID, TWITCH_EMOJI_ID, YOUTUBE_EMOJI, \
-    TWITCH_EMOJI, LIGHTENING_EMOJI_ID
+    TWITCH_EMOJI, LIGHTENING_EMOJI_ID, render_emoji
 from services.http import request_json
 
 
@@ -284,7 +284,7 @@ class TwitchPlatform:
             )
         except Exception as e:
             self.client.logger.error(
-                f"[twitch] Failed to fetch video data from channel '{self.twitch_channel_name}'", e
+                f"[twitch] Failed to fetch video data from channel '{self.twitch_channel_name}': {e.args}"
             )
             return None
 
@@ -418,7 +418,11 @@ class StreamCheckerSchedule(BaseSchedule):
                  f"{'\n'.join(self._get_notify_data())}\n\n"
                  "Определенные мною теги стрима:\n"
                  f"{'\n'.join(
-                     map(lambda t: '- ' + t.name, recognized_topics)
+                     map(
+                         lambda t: '- ' + (render_emoji(
+                             t.emoji, "📃") if t.emoji.isdigit() else t.emoji) +  t.name,
+                         recognized_topics
+                    )
                  ) if recognized_topics else '❌ Теги стрима не определены автоматически :('}\n\n"
                  "⚠️ У вас есть <b>3 минуты</b>, чтобы изменить выбранные тематики")
 
@@ -430,12 +434,23 @@ class StreamCheckerSchedule(BaseSchedule):
         buttons = []
 
         for topic in topics:
-            if topic in selected_topics:
-                text = "✅ " + topic.name
-            else:
-                text = "⬜ " + topic.name
+            text = ""
 
-            buttons.append([InlineKeyboardButton(text=text, callback_data="notify_tag:" + str(topic.id))])
+            emoji = None
+            if topic.emoji.isdigit():
+                emoji = topic.emoji
+            else:
+                text += topic.emoji + " "
+
+            text += topic.name
+
+            if topic in selected_topics:
+                text += " ✅"
+            else:
+                text += " ⬜"
+
+            buttons.append([InlineKeyboardButton(text=text, callback_data="notify_tag:" + str(topic.id),
+                                                 icon_custom_emoji_id=emoji)])
 
         buttons.append([InlineKeyboardButton(text="🔔 Сохранить", callback_data="notify_tag:save")])
 
@@ -465,7 +480,11 @@ class StreamCheckerSchedule(BaseSchedule):
         ]
 
         if selected_topics:
-            message.append(f"Теги стрима:\n{'\n'.join(map(lambda t: '- ' + t.name, selected_topics))}\n")
+            message.append(f"Теги стрима:\n{'\n'.join(map(
+                         lambda t: '- ' + (render_emoji(
+                             t.emoji, "📃") if t.emoji.isdigit() else t.emoji) +  t.name,
+                         selected_topics
+                    ))}\n")
 
         return message
 
@@ -509,7 +528,8 @@ class StreamCheckerSchedule(BaseSchedule):
                      ) if selected_topics else '❌ Теги стрима не выбраны :('}\n\n"
                      f"⚠️ {'Уведомление подписчикам уже летит!' if selected_topics
                      else 'Я не смогу уведомить подписчиков лично, поскольку теги стрима не выбраны'}",
-                parse_mode="HTML"
+                parse_mode="HTML",
+                reply_markup=None
             )
 
         while True:

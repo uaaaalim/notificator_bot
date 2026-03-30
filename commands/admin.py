@@ -53,6 +53,8 @@ class AdminCommand(BaseCommand):
             await prompt.edit_text("announcements") # todo: finish
 
     async def _show_topics_menu(self, message: Message, prompt_message_id: int) -> None:
+        await self.client.bot.delete_message(chat_id=message.chat.id, message_id=prompt_message_id)
+
         while True:
             topics_text = await self._build_topics_text()
             keyboard = InlineKeyboardMarkup(
@@ -63,9 +65,8 @@ class AdminCommand(BaseCommand):
                 ]
             )
 
-            await self.client.bot.edit_message_text(
+            prompt = await self.client.bot.send_message(
                 chat_id=message.chat.id,
-                message_id=prompt_message_id,
                 text=topics_text,
                 parse_mode=ParseMode.HTML,
                 reply_markup=keyboard,
@@ -75,34 +76,32 @@ class AdminCommand(BaseCommand):
                 message.chat.id,
                 message.from_user.id,
                 120,
-                prompt_message_id,
+                prompt.message_id,
             )
 
             if not callback:
                 await self.client.bot.edit_message_text(
                     chat_id=message.chat.id,
-                    message_id=prompt_message_id,
+                    message_id=prompt.message_id,
                     text="⏰ Время ожидания истекло. Запустите /admin снова.",
                 )
                 return
 
             if callback.data == "admin:topics:add":
                 await callback.answer()
-                await self._create_topic_flow(message, prompt_message_id)
+                await self._create_topic_flow(message, prompt.message_id)
                 continue
 
             if callback.data == "admin:topics:delete":
                 await callback.answer()
-                await self._delete_topic_flow(message, prompt_message_id)
+                await self._delete_topic_flow(message, prompt.message_id)
                 continue
 
             if callback.data == "admin:home":
                 await callback.answer()
-                await self.client.bot.delete_message(message.chat.id, prompt_message_id)
+                await self.client.bot.delete_message(message.chat.id, prompt.message_id)
                 await self._show_main_menu(message)
                 return
-
-            await callback.answer("Неизвестное действие", show_alert=True)
 
     async def _create_topic_flow(self, message: Message, prompt_message_id: int) -> None:
         await self.client.bot.edit_message_text(
