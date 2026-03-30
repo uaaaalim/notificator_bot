@@ -95,7 +95,7 @@ class YoutubePlatform:
             return True
         except Exception as e:
             self.client.logger.error(
-                f"[youtube] Failed to ensure upload playlist of channel '{self.youtube_channel}'", e
+                f"[youtube] Failed to ensure upload playlist of channel '{self.youtube_channel}': {e}"
             )
             return False
 
@@ -133,7 +133,7 @@ class YoutubePlatform:
             return video_ids
         except Exception as e:
             self.client.logger.error(
-                f"[youtube] Failed to get videos from channel '{self.youtube_channel}'", e
+                f"[youtube] Failed to get videos from channel '{self.youtube_channel}': {e}"
             )
             return None
 
@@ -188,7 +188,7 @@ class YoutubePlatform:
             return None
         except Exception as e:
             self.client.logger.error(
-                f"[youtube] Failed to fetch video data from channel '{self.youtube_channel}'", e
+                f"[youtube] Failed to fetch video data from channel '{self.youtube_channel}': {e}"
             )
             return None
 
@@ -239,7 +239,7 @@ class TwitchPlatform:
             return True
         except Exception as e:
             self.client.logger.error(
-                "[twitch] Failed to get access token", e
+                f"[twitch] Failed to get access token: {e}"
             )
             return False
 
