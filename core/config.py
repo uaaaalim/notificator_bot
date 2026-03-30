@@ -17,7 +17,7 @@ class Config:
         self.log_level = log_level
         self.author_id = author_id
         self.author_channel_id = author_channel_id
-        self.owner_ids = map(int, owner_ids) or []
+        self.owner_ids = [int(owner_id) for owner_id in (owner_ids or []) if str(owner_id).strip()]
         self.db_pool_size = db_pool_size
         self.db_max_overflow = db_max_overflow
         self.db_pool_recycle = db_pool_recycle
