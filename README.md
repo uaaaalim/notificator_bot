@@ -56,14 +56,27 @@ BOT_TOKEN=1234567890:your_telegram_bot_token
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/notificator_bot
 LOG_LEVEL=INFO
 AUTHOR_ID=123456789
+AUTHOR_CHANNEL_ID=-1001234567890
 OWNER_IDS=123456789,987654321
+
+YOUTUBE_API_KEY=your_google_api_key
+YOUTUBE_CHANNEL=@your_channel_or_uc_id
+TWITCH_CLIENT_ID=your_twitch_client_id
+TWITCH_CLIENT_SECRET=your_twitch_client_secret
+TWITCH_CHANNEL_NAME=your_channel_name
 
 DB_POOL_SIZE=20
 DB_MAX_OVERFLOW=40
 DB_POOL_RECYCLE=1800
 ```
 
-Минимально обязательные переменные: `BOT_TOKEN` и `DATABASE_URL`.
+Обязательные переменные для запуска: `BOT_TOKEN`, `DATABASE_URL`, `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL`,
+`TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL_NAME`, `AUTHOR_ID`.
+
+Опциональные переменные:
+- `AUTHOR_CHANNEL_ID` — канал автора, куда бот продублирует анонс.
+- `OWNER_IDS` — список Telegram user ID через запятую для owner-команд (например `/admin`).
+- `LOG_LEVEL`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE`.
 
 ---
 
@@ -166,7 +179,9 @@ class EchoMessage(BaseMessage):
             await message.answer(f"Эхо: {message.text}")
 ```
 
-> `trigger` сейчас служит меткой для логов; отбор логики выполняется внутри `execute`.
+> `trigger` используется как routing-префикс:
+> - `trigger = "*"` — обработчик ловит все сообщения;
+> - `trigger = "текст"` — обработчик получает сообщения, которые начинаются с этого текста (без учета регистра).
 
 ---
 

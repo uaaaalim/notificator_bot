@@ -18,5 +18,17 @@ class BaseMessage:
             return
         await self.execute(message)
 
+    def route_filter(self):
+        if self.trigger == "*":
+            return None
+
+        trigger = self.trigger.lower()
+
+        def _filter(message: Message) -> bool:
+            text = message.text or ""
+            return text.lower().startswith(trigger)
+
+        return _filter
+
     async def execute(self, message: Message) -> None:
         raise NotImplementedError
