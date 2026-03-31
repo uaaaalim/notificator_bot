@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,7 @@ class BaseSchedule:
         self.client: "BotClient" = client
         self.status = ScheduleStatus.IDLE
         self.error: str | None = None
+        self.last_run_at: datetime | None = None
 
     async def run_forever(self) -> None:
         while True:
@@ -28,6 +30,7 @@ class BaseSchedule:
             await self.run_once()
 
     async def run_once(self) -> None:
+        self.last_run_at = datetime.now(timezone.utc)
         self.status = ScheduleStatus.RUNNING
         retry = 0
         while retry <= self.max_retries:
