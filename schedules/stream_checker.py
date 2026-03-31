@@ -299,7 +299,7 @@ class StreamCheckerSchedule(BaseSchedule):
     LIVE_DELAY = 10 * 60
     WAIT_SECOND_PLATFORM_DELAY = 30
     WAIT_SECOND_PLATFORM_ATTEMPTS = 5
-    WAIT_TOPICS_FROM_AUTHOR_TIMEOUT = 180
+    WAIT_TOPICS_FROM_AUTHOR_TIMEOUT = 3 * 60
 
     def __init__(self, client: "BotClient"):
         super().__init__(client)
@@ -326,6 +326,15 @@ class StreamCheckerSchedule(BaseSchedule):
             self.client.logger.info(
                 f"[stream_checker] The schedule cooldown has been set to {self.delay_seconds} seconds"
             )
+
+    def _get_emoji(self, emoji: Optional[str], default_emoji: str = "📃") -> str:
+        if emoji:
+            if emoji.isdigit():
+                return render_emoji(emoji, default_emoji)
+            else:
+                return emoji
+
+        return default_emoji
 
     def _get_priority_stream(self) -> Optional[Stream]:
         youtube_streams = [stream for stream in self._cached_live if stream.platform == StreamPlatform.YOUTUBE]
@@ -416,14 +425,8 @@ class StreamCheckerSchedule(BaseSchedule):
             self,
             recognized_topics: list[StreamTopicEntity]
     ) -> str:
-        # ОПАСНОЕ МЕСТО: topic.emoji ожидается строкой; при None вызов .isdigit() упадет.
-        recognized_text = (
-            "\n".join(
-                map(
-                    lambda t: "- " + (render_emoji(t.emoji, "📃") if t.emoji.isdigit() else t.emoji) + t.name,
-                    recognized_topics,
-                )
-            )
+        recognized_text = ("\n".join(map(
+            lambda t: "- " + self._get_emoji(t.emoji) + " " + t.name, recognized_topics))
             if recognized_topics else "❌ Теги стрима не определены автоматически :("
         )
         notify_lines = "\n".join(self._get_notify_data())
@@ -443,18 +446,17 @@ class StreamCheckerSchedule(BaseSchedule):
 
         for topic in topics:
             text = ""
-
             emoji = None
-            # ОПАСНОЕ МЕСТО: topic.emoji может быть None, тогда .isdigit() вызовет ошибку.
-            if topic.emoji.isdigit():
+
+            if topic.emoji and topic.emoji.isdigit():
                 emoji = topic.emoji
             else:
-                text += topic.emoji + " "
+                text += (topic.emoji if topic.emoji else "📃") + " "
 
             text += topic.name
 
             if topic in selected_topics:
-                text += " ✅"
+                text += " ✅ (Выбрано)"
             else:
                 text += " ⬜"
 
@@ -490,9 +492,8 @@ class StreamCheckerSchedule(BaseSchedule):
         ]
 
         if selected_topics:
-            # ОПАСНОЕ МЕСТО: topic.emoji ожидается строкой; при None вызов .isdigit() упадет.
             topic_lines = "\n".join(map(
-                lambda t: "- " + (render_emoji(t.emoji, "📃") if t.emoji.isdigit() else t.emoji) + t.name,
+                lambda t: "- " + (self._get_emoji(t.emoji)) + " " + t.name,
                 selected_topics,
             ))
 
@@ -501,10 +502,11 @@ class StreamCheckerSchedule(BaseSchedule):
         return message
 
     async def notify_content_author(self) -> None:
-        self.client.logger.info("[stream_checker] Streams on following platforms were detected:")
-
+        platforms = ""
         for stream in self._cached_live:
-            self.client.logger.info(str(stream))
+            platforms += f"[{stream.platform.name}: {stream.link}] "
+
+        self.client.logger.info("[stream_checker] Detected streams: " + platforms)
 
         self._waiting_attempt = 0
         self.refresh_delay()
@@ -530,18 +532,23 @@ class StreamCheckerSchedule(BaseSchedule):
             content_author_id,
             text=self._build_author_notify_message(selected_topics),
             reply_markup=self._build_topic_selection_keyboard(selected_topics, topics),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            disable_web_page_preview=True
         )
 
         async def on_timeout():
-            approved_topics_text = "\n".join(map(lambda t: "- " + t.name, selected_topics)) if selected_topics else "❌ Теги стрима не выбраны :("
+            approved_topics_text = (
+                "\n".join(map(
+                    lambda t: "- " + self._get_emoji(t.emoji) + " " + t.name, selected_topics))
+                    if selected_topics else "❌ Теги стрима не выбраны :("
+            )
             status_text = (
                 "Уведомление подписчикам уже летит!"
                 if selected_topics
                 else "Я не смогу уведомить подписчиков лично, поскольку теги стрима не выбраны"
             )
-            # ОПАСНОЕ МЕСТО: здесь формируется большой HTML-текст вручную; легко сломать разметку при правках.
             notify_lines = "\n".join(self._get_notify_data())
+
             await prompt.edit_text(
                 text=f"{live_emojis()}\n\n"
                      f"{notify_lines}\n\n"
@@ -549,7 +556,8 @@ class StreamCheckerSchedule(BaseSchedule):
                      f"{approved_topics_text}\n\n"
                      f"⚠️ {status_text}",
                 parse_mode="HTML",
-                reply_markup=None
+                reply_markup=None,
+                disable_web_page_preview=True
             )
 
         while True:
@@ -559,7 +567,7 @@ class StreamCheckerSchedule(BaseSchedule):
 
             callback = await self.client.wait_for_button(
                 chat_id=prompt.chat.id,
-                user_id=content_author_id,
+                user_id=int(content_author_id),
                 timeout=self.WAIT_TOPICS_FROM_AUTHOR_TIMEOUT,
                 message_id=prompt.message_id,
                 on_timeout=on_timeout
@@ -584,14 +592,15 @@ class StreamCheckerSchedule(BaseSchedule):
                     await prompt.edit_text(
                         text=self._build_author_notify_message(selected_topics),
                         reply_markup=self._build_topic_selection_keyboard(selected_topics, topics),
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        disable_web_page_preview=True
                     )
 
         if config['notify_channel']:
             channel_id = self.client.config.author_channel_id
 
             if not channel_id:
-                self.client.logger.info("[stream_checker] Content author channel id is not set, skipping...")
+                self.client.logger.warning("[stream_checker] Content author channel id is not set, skipping...")
             else:
                 notify_message = self._build_notify_message(selected_topics)
                 notify_keyboard = self._build_notify_keyboard()
@@ -619,8 +628,8 @@ class StreamCheckerSchedule(BaseSchedule):
                         f"[stream_checker] The announcement has been sent to channel {channel_id}"
                     )
                 except TelegramForbiddenError:
-                    self.client.logger.info(
-                        f"[stream_checker] Couldn't send the announcement to channel {channel_id}. Not available."
+                    self.client.logger.warning(
+                        f"[stream_checker] Couldn't send the announcement to channel {channel_id}: Not available."
                     )
                 except TelegramBadRequest as e:
                     self.client.logger.error(
@@ -661,6 +670,8 @@ class StreamCheckerSchedule(BaseSchedule):
                         disable_web_page_preview=True
                     )
                     sent += 1
+
+                    await asyncio.sleep(0.01)
                 except TelegramForbiddenError:
                     errored += 1
                 except TelegramBadRequest as e:
