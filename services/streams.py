@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from database.entities.stream_topic import StreamTopicEntity
 from database.entities.subscribers import SubscriberEntity
-from services.emojis import LIGHTENING_EMOJI_ID
+from services.emojis import LIGHTENING_EMOJI_ID, is_custom_emoji
 
 
 def get_select_topic_keyboard():
@@ -21,14 +21,24 @@ def get_select_topics(subscriber: SubscriberEntity, topics: Sequence[StreamTopic
     user_topics = [topic.id for topic in subscriber.stream_topics]
 
     for topic in topics:
+        emoji = None
+        topic_name = ""
+
+        if topic.emoji:
+            if is_custom_emoji(topic.emoji):
+                emoji = topic.emoji
+            else:
+                topic_name += topic.emoji + " "
+
         if topic.id in user_topics:
-            topic_name = "✅ " + topic.name
+            topic_name += topic.name + " ✅ (Выбрано)"
         else:
-            topic_name = "⬜ " + topic.name
+            topic_name += topic.name + " ⬜"
 
         buttons.append([InlineKeyboardButton(
             text=topic_name,
-            callback_data="stream_topic:" + str(topic.id)
+            callback_data="stream_topic:" + str(topic.id),
+            icon_custom_emoji_id=emoji
         )])
 
     buttons.append(
