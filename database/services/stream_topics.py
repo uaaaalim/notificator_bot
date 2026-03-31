@@ -46,3 +46,19 @@ async def delete_stream_topic_by_id(session: AsyncSession, topic_id: int) -> boo
     await session.delete(topic)
     await session.flush()
     return True
+
+
+async def update_stream_topic_field_by_id(
+    session: AsyncSession,
+    *,
+    topic_id: int,
+    field_name: str,
+    value: str | None,
+) -> StreamTopicEntity | None:
+    topic = await session.get(StreamTopicEntity, topic_id)
+    if not topic:
+        return None
+
+    setattr(topic, field_name, value)
+    await session.flush()
+    return topic

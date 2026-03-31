@@ -60,6 +60,7 @@ class AdminCommand(BaseCommand):
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
                     [InlineKeyboardButton(text="➕ Добавить тематику", callback_data="admin:topics:add")],
+                    [InlineKeyboardButton(text="✏️ Изменить тематику", callback_data="admin:topics:edit")],
                     [InlineKeyboardButton(text="➖ Удалить тематику по ID", callback_data="admin:topics:delete")],
                     [InlineKeyboardButton(text="⬅️ На главную", callback_data="admin:home")]
                 ]
@@ -95,6 +96,11 @@ class AdminCommand(BaseCommand):
             if callback.data == "admin:topics:delete":
                 await callback.answer()
                 await self._delete_topic_flow(message, prompt.message_id)
+                continue
+
+            if callback.data == "admin:topics:edit":
+                await callback.answer()
+                await self._edit_topic_flow(message, prompt.message_id)
                 continue
 
             if callback.data == "admin:home":
@@ -216,6 +222,123 @@ class AdminCommand(BaseCommand):
             return
 
         await reply.reply(f"✅ Тематика с ID {topic_id} удалена.")
+
+    async def _edit_topic_flow(self, message: Message, prompt_message_id: int) -> None:
+        await self.client.bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=prompt_message_id,
+            parse_mode=ParseMode.HTML,
+            text=(
+                "✏️ <b>Изменение тематики</b>\n\n"
+                "Отправьте ID тематики, которую нужно изменить."
+            ),
+        )
+
+        id_reply = await self.client.wait_for_message(message.chat.id, message.from_user.id, 120)
+        if not id_reply:
+            return
+
+        if not id_reply.text or not id_reply.text.isdigit():
+            await id_reply.reply("❌ ID должен быть целым числом.")
+            return
+
+        topic_id = int(id_reply.text)
+        field_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="Название", callback_data=f"admin:topics:edit:{topic_id}:name")],
+                [InlineKeyboardButton(text="Эмодзи", callback_data=f"admin:topics:edit:{topic_id}:emoji")],
+                [InlineKeyboardButton(text="Триггер", callback_data=f"admin:topics:edit:{topic_id}:triggers")],
+            ]
+        )
+
+        choose_field_message = await self.client.bot.send_message(
+            chat_id=message.chat.id,
+            parse_mode=ParseMode.HTML,
+            text=(
+                f"Выберите, что изменить в тематике с ID <b>{topic_id}</b>."
+            ),
+            reply_markup=field_keyboard,
+        )
+
+        field_callback = await self.client.wait_for_button(
+            message.chat.id,
+            message.from_user.id,
+            120,
+            choose_field_message.message_id,
+        )
+        if not field_callback:
+            await self.client.bot.edit_message_text(
+                chat_id=message.chat.id,
+                message_id=choose_field_message.message_id,
+                text="⏰ Время ожидания истекло. Изменение отменено.",
+            )
+            return
+
+        await field_callback.answer()
+        callback_parts = field_callback.data.split(":")
+        field_name = callback_parts[-1]
+        field_prompt = {
+            "name": "Введите новое название.",
+            "emoji": (
+                "Введите новый эмодзи.\n"
+                "Для кастомного эмодзи можно отправить сам эмодзи или его ID.\n"
+                "Отправьте <code>-</code>, чтобы очистить поле."
+            ),
+            "triggers": (
+                "Введите новый список триггеров (через запятую).\n"
+                "Отправьте <code>-</code>, чтобы очистить поле."
+            ),
+        }
+
+        await self.client.bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=choose_field_message.message_id,
+            parse_mode=ParseMode.HTML,
+            text=field_prompt[field_name],
+        )
+
+        value_reply = await self.client.wait_for_message(message.chat.id, message.from_user.id, 180)
+        if not value_reply:
+            return
+
+        new_value = (value_reply.text or "").strip()
+        if field_name in {"emoji", "triggers"} and new_value == "-":
+            new_value = ""
+
+        if field_name == "name" and not new_value:
+            await value_reply.reply("❌ Название не может быть пустым.")
+            return
+
+        if field_name == "emoji":
+            resolved_emoji = self._resolve_topic_emoji(value_reply)
+            if not resolved_emoji and new_value:
+                resolved_emoji = new_value
+            value_to_store = resolved_emoji
+        else:
+            value_to_store = new_value
+
+        if field_name in {"emoji", "triggers"} and not value_to_store:
+            value_to_store = None
+
+        async with self.client.db.session() as db:
+            async with db.begin():
+                updated = await stream_topics.update_stream_topic_field_by_id(
+                    db,
+                    topic_id=topic_id,
+                    field_name=field_name,
+                    value=value_to_store,
+                )
+
+        if not updated:
+            await value_reply.reply(f"⚠️ Тематика с ID {topic_id} не найдена.")
+            return
+
+        field_label = {
+            "name": "название",
+            "emoji": "эмодзи",
+            "triggers": "триггеры",
+        }[field_name]
+        await value_reply.reply(f"✅ Обновлено поле «{field_label}» у тематики с ID {topic_id}.")
 
     async def _build_topics_text(self) -> str:
         async with self.client.db.session() as db:
