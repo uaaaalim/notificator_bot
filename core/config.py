@@ -31,17 +31,17 @@ class Config:
 def load_config() -> Config:
     load_dotenv()
 
-    bot_token = os.getenv("BOT_TOKEN", "")
-    database_url = os.getenv("DATABASE_URL", "")
+    bot_token = os.getenv("BOT_TOKEN", "") # telegram bot token
+    database_url = os.getenv("DATABASE_URL", "") # strictly asynchronous postgresql connection, PostgreSQL 18 stable
 
-    youtube_api_key = os.getenv("YOUTUBE_API_KEY", "")
-    youtube_channel = os.getenv("YOUTUBE_CHANNEL", "")
+    youtube_api_key = os.getenv("YOUTUBE_API_KEY", "") # api key for youtube from googleapis
+    youtube_channel = os.getenv("YOUTUBE_CHANNEL", "") # @somechannel or UC_CHANNEL_ID
 
-    twitch_client_id = os.getenv("TWITCH_CLIENT_ID", "")
-    twitch_client_secret = os.getenv("TWITCH_CLIENT_SECRET", "")
-    twitch_channel_name = os.getenv("TWITCH_CHANNEL_NAME", "")
+    twitch_client_id = os.getenv("TWITCH_CLIENT_ID", "") # client id from twitch dev portal
+    twitch_client_secret = os.getenv("TWITCH_CLIENT_SECRET", "") # client secret
+    twitch_channel_name = os.getenv("TWITCH_CHANNEL_NAME", "") # channel name (username without @ in the beginning)
 
-    author_id = os.getenv("AUTHOR_ID")
+    author_id = os.getenv("AUTHOR_ID") # content author's telegram id
 
     missing = [
         name for name, value in {
@@ -71,7 +71,7 @@ def load_config() -> Config:
 
     return Config(
         bot_token=bot_token, database_url=database_url, log_level=log_level,
-        author_id=author_id, owner_ids=owner_ids,
+        author_id=author_id, author_channel_id=author_channel_id, owner_ids=owner_ids,
         db_pool_size=db_pool_size, db_max_overflow=db_max_overflow, db_pool_recycle=db_pool_recycle,
         youtube_api_key=youtube_api_key, youtube_channel=youtube_channel,
         twitch_client_id=twitch_client_id,
