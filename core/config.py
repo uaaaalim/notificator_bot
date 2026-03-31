@@ -28,6 +28,12 @@ class Config:
         self.twitch_channel_name = twitch_channel_name
 
 
+def _parse_owner_ids(raw_owner_ids: str | None) -> list[str]:
+    if not raw_owner_ids:
+        return []
+    return [item.strip() for item in raw_owner_ids.split(",") if item.strip()]
+
+
 def load_config() -> Config:
     load_dotenv()
 
@@ -41,7 +47,7 @@ def load_config() -> Config:
     twitch_client_secret = os.getenv("TWITCH_CLIENT_SECRET", "") # client secret
     twitch_channel_name = os.getenv("TWITCH_CHANNEL_NAME", "") # channel name (username without @ in the beginning)
 
-    author_id = os.getenv("AUTHOR_ID") # content author's telegram id
+    author_id = os.getenv("AUTHOR_ID") # content author's telegram id (who confirms stream topics before notifications)
 
     missing = [
         name for name, value in {
@@ -59,9 +65,9 @@ def load_config() -> Config:
 
     if missing:
         raise ValueError(f"Missing env variables: {', '.join(missing)}")
-    owner_ids = os.getenv("OWNER_IDS").split(",")
+    owner_ids = _parse_owner_ids(os.getenv("OWNER_IDS")) # telegram ids with owner-level access (e.g. /admin)
 
-    author_channel_id = os.getenv("AUTHOR_CHANNEL_ID")
+    author_channel_id = os.getenv("AUTHOR_CHANNEL_ID") # optional telegram channel id for public announcements
 
     log_level = os.getenv("LOG_LEVEL", "INFO")
     db_pool_size = int(os.getenv("DB_POOL_SIZE", "20"))

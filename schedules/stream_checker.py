@@ -5,9 +5,11 @@ from typing import Optional
 
 from aiogram.exceptions import TelegramForbiddenError, TelegramBadRequest
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from sqlalchemy.orm import selectinload
 
 from core.client import BotClient
 from core.implementations.schedule import BaseSchedule
+from database.entities.subscribers import SubscriberEntity
 from database.entities.stream_topic import StreamTopicEntity
 from database.services.configs import get_config
 from database.services.stream_topics import get_stream_topics
@@ -414,17 +416,23 @@ class StreamCheckerSchedule(BaseSchedule):
             self,
             recognized_topics: list[StreamTopicEntity]
     ) -> str:
+        # ОПАСНОЕ МЕСТО: topic.emoji ожидается строкой; при None вызов .isdigit() упадет.
+        recognized_text = (
+            "\n".join(
+                map(
+                    lambda t: "- " + (render_emoji(t.emoji, "📃") if t.emoji.isdigit() else t.emoji) + t.name,
+                    recognized_topics,
+                )
+            )
+            if recognized_topics else "❌ Теги стрима не определены автоматически :("
+        )
+        notify_lines = "\n".join(self._get_notify_data())
+
         return (f"{live_emojis()}\n\n"
-                 f"{'\n'.join(self._get_notify_data())}\n\n"
-                 "Определенные мною теги стрима:\n"
-                 f"{'\n'.join(
-                     map(
-                         lambda t: '- ' + (render_emoji(
-                             t.emoji, "📃") if t.emoji.isdigit() else t.emoji) +  t.name,
-                         recognized_topics
-                    )
-                 ) if recognized_topics else '❌ Теги стрима не определены автоматически :('}\n\n"
-                 "⚠️ У вас есть <b>3 минуты</b>, чтобы изменить выбранные тематики")
+                f"{notify_lines}\n\n"
+                "Определенные мною теги стрима:\n"
+                f"{recognized_text}\n\n"
+                "⚠️ У вас есть <b>3 минуты</b>, чтобы изменить выбранные тематики")
 
     def _build_topic_selection_keyboard(
             self,
@@ -437,6 +445,7 @@ class StreamCheckerSchedule(BaseSchedule):
             text = ""
 
             emoji = None
+            # ОПАСНОЕ МЕСТО: topic.emoji может быть None, тогда .isdigit() вызовет ошибку.
             if topic.emoji.isdigit():
                 emoji = topic.emoji
             else:
@@ -474,17 +483,20 @@ class StreamCheckerSchedule(BaseSchedule):
         return notify_keyboard
 
     def _build_notify_message(self, selected_topics: list[StreamTopicEntity]) -> list[str]:
+        notify_lines = "\n".join(self._get_notify_data())
         message = [
             f"{live_emojis()}\n",
-            f"{'\n'.join(self._get_notify_data())}\n"
+            f"{notify_lines}\n"
         ]
 
         if selected_topics:
-            message.append(f"Теги стрима:\n{'\n'.join(map(
-                         lambda t: '- ' + (render_emoji(
-                             t.emoji, "📃") if t.emoji.isdigit() else t.emoji) +  t.name,
-                         selected_topics
-                    ))}\n")
+            # ОПАСНОЕ МЕСТО: topic.emoji ожидается строкой; при None вызов .isdigit() упадет.
+            topic_lines = "\n".join(map(
+                lambda t: "- " + (render_emoji(t.emoji, "📃") if t.emoji.isdigit() else t.emoji) + t.name,
+                selected_topics,
+            ))
+
+            message.append(f"Теги стрима:\n{topic_lines}\n")
 
         return message
 
@@ -506,7 +518,10 @@ class StreamCheckerSchedule(BaseSchedule):
                 'notify_subscribers': await get_config(session, 'streams_notify_subscribers', '1') == '1'
             }
 
-            subscribers = await get_subscribers(session)
+            subscribers = await get_subscribers(
+                session,
+                options=[selectinload(SubscriberEntity.stream_topics)],
+            )
 
         selected_topics: list[StreamTopicEntity] = await self._recognize_topics(topics)
         content_author_id: int | str = self.client.config.author_id
@@ -519,15 +534,20 @@ class StreamCheckerSchedule(BaseSchedule):
         )
 
         async def on_timeout():
+            approved_topics_text = "\n".join(map(lambda t: "- " + t.name, selected_topics)) if selected_topics else "❌ Теги стрима не выбраны :("
+            status_text = (
+                "Уведомление подписчикам уже летит!"
+                if selected_topics
+                else "Я не смогу уведомить подписчиков лично, поскольку теги стрима не выбраны"
+            )
+            # ОПАСНОЕ МЕСТО: здесь формируется большой HTML-текст вручную; легко сломать разметку при правках.
+            notify_lines = "\n".join(self._get_notify_data())
             await prompt.edit_text(
                 text=f"{live_emojis()}\n\n"
-                     f"{'\n'.join(self._get_notify_data())}\n\n"
+                     f"{notify_lines}\n\n"
                      "Утвержденные теги стрима:\n"
-                     f"{'\n'.join(
-                         map(lambda t: '- ' + t.name, selected_topics)
-                     ) if selected_topics else '❌ Теги стрима не выбраны :('}\n\n"
-                     f"⚠️ {'Уведомление подписчикам уже летит!' if selected_topics
-                     else 'Я не смогу уведомить подписчиков лично, поскольку теги стрима не выбраны'}",
+                     f"{approved_topics_text}\n\n"
+                     f"⚠️ {status_text}",
                 parse_mode="HTML",
                 reply_markup=None
             )
@@ -614,6 +634,7 @@ class StreamCheckerSchedule(BaseSchedule):
         if config['notify_subscribers'] and selected_topics:
             notify_message = self._build_notify_message(selected_topics)
             notify_keyboard = self._build_notify_keyboard()
+            selected_topic_ids = {topic.id for topic in selected_topics}
 
             notify_message.append("🔔 Вам пришло уведомление, потому что вы подписаны на тематики стримов!")
             notify_keyboard.inline_keyboard.append([
@@ -627,6 +648,10 @@ class StreamCheckerSchedule(BaseSchedule):
             errored = 0
 
             for subscriber in subscribers:
+                subscriber_topic_ids = {topic.id for topic in subscriber.stream_topics}
+                if not (selected_topic_ids & subscriber_topic_ids):
+                    continue
+
                 try:
                     await self.client.bot.send_message(
                         subscriber.tg_id,

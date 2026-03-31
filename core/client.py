@@ -58,7 +58,11 @@ class BotClient:
 
         count = 0
         for message in self.messages:
-            self.dp.message.register(message.handle)
+            route_filter = message.route_filter()
+            if route_filter is None:
+                self.dp.message.register(message.handle)
+            else:
+                self.dp.message.register(message.handle, route_filter)
 
             count += 1
             self.logger.info("[message trigger] Loaded trigger: %s", message.trigger)
