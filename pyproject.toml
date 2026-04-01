@@ -1,7 +1,7 @@
 [project]
-name = "notificator_bot"
+name = "[PROJECT_NAME]"
 version = "1.0.0"
-description = "A Telegram bot (aiogram) for announcements about new streams on Youtube or Twitch"
+description = "[PROJECT_DESCRIPTION]"
 authors = [
     {name = "Alim",email = "zhaba.v.kedah77@gmail.com"}
 ]

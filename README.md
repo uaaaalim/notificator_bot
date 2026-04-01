@@ -1,92 +1,121 @@
-# notificator_bot
+# [PROJECT_NAME]
 
-`notificator_bot` — шаблон Telegram-бота на **aiogram 3** с автозагрузкой хендлеров, PostgreSQL, SQLAlchemy и Alembic.
+`[PROJECT_NAME]` — шаблон Telegram-бота на Python с поддержкой:
+- aiogram
+- SQLAlchemy
+- PostgreSQL
+- Alembic
+- Poetry
 
-## Стек проекта
-
-- Python `>=3.13,<3.15`
-- aiogram `>=3.26.0,<4.0.0`
-- SQLAlchemy `>=2.0.48,<3.0.0`
-- asyncpg `>=0.31.0,<0.32.0`
-- Alembic `>=1.18.4,<2.0.0`
-- python-dotenv `>=1.2.2,<2.0.0`
-- colorlog `>=6.10.1,<7.0.0`
+Замените `[PROJECT_NAME]` и описание под свой проект.
 
 ---
 
-## Зависимость от Poetry и быстрая установка
+## Возможности
 
-Проект использует **Poetry** для управления зависимостями.
+- удобная структура для Telegram-бота;
+- работа с PostgreSQL;
+- миграции через Alembic;
+- управление зависимостями через Poetry;
+- поддержка `.env`;
+- виртуальное окружение `.venv` создаётся **внутри проекта**.
 
-### 1) Установить Poetry
+---
 
-Официальный способ:
+## Стек
+
+- Python `>=3.13,<3.15`
+- aiogram
+- SQLAlchemy
+- asyncpg
+- Alembic
+- python-dotenv
+- colorlog
+
+---
+
+## Что нужно установить заранее
+
+Перед началом установите:
+
+- **Python**: https://www.python.org/downloads/
+- **Poetry**: https://python-poetry.org/docs/#installation
+- **PostgreSQL**: https://www.postgresql.org/download/
+
+---
+
+# Быстрая установка
+
+## 1. Клонировать проект
 
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
-```
+git clone <YOUR_REPOSITORY_URL>
+cd <PROJECT_FOLDER>
+````
 
-Проверка установки:
+---
+
+## 2. Включить `.venv` внутри проекта
+
+Чтобы Poetry создавал виртуальное окружение **не глобально**, а прямо в папке проекта:
 
 ```bash
-poetry --version
+poetry config virtualenvs.in-project true
 ```
 
-### 2) Установить зависимости проекта
+Проверить можно так:
+
+```bash
+poetry config virtualenvs.in-project
+```
+
+Должно вернуть `true`.
+
+После этого окружение будет создаваться в папке:
+
+```bash
+./.venv
+```
+
+---
+
+## 3. Установить зависимости
 
 ```bash
 poetry env use 3.13
 poetry install
 ```
 
-Проверка окружения:
-
-```bash
-poetry run python --version
-```
-
 ---
 
-## Настройка `.env`
+## 4. Создать `.env`
 
-Создайте `.env` в корне репозитория:
+Создайте файл `.env` в корне проекта.
+
+Пример:
 
 ```env
 BOT_TOKEN=1234567890:your_telegram_bot_token
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/notificator_bot
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/bot_db
 LOG_LEVEL=INFO
-AUTHOR_ID=123456789
-AUTHOR_CHANNEL_ID=-1001234567890
 OWNER_IDS=123456789,987654321
-
-YOUTUBE_API_KEY=your_google_api_key
-YOUTUBE_CHANNEL=@your_channel_or_uc_id
-TWITCH_CLIENT_ID=your_twitch_client_id
-TWITCH_CLIENT_SECRET=your_twitch_client_secret
-TWITCH_CHANNEL_NAME=your_channel_name
-
-DB_POOL_SIZE=20
-DB_MAX_OVERFLOW=40
-DB_POOL_RECYCLE=1800
 ```
 
-Обязательные переменные для запуска: `BOT_TOKEN`, `DATABASE_URL`, `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL`,
-`TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL_NAME`, `AUTHOR_ID`.
+### Обязательные переменные
 
-Опциональные переменные:
-- `AUTHOR_CHANNEL_ID` — канал автора, куда бот продублирует анонс.
-- `OWNER_IDS` — список Telegram user ID через запятую для owner-команд (например `/admin`).
-- `LOG_LEVEL`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_RECYCLE`.
+* `BOT_TOKEN`
+* `DATABASE_URL`
+
+### Необязательные переменные
+
+* `LOG_LEVEL` — уровень логов (default: INFO)
+* `OWNER_IDS` — список Telegram user ID через запятую
+
+> Вы можете добавлять свои переменные, потом только не забудьте отредактировать `core/config.py`
 
 ---
 
-## Запуск проекта
-
-```bash
-poetry run python app.py
-```
-
-Альтернатива:
+## 5. Запуск проекта
 
 ```bash
 poetry run python run.py
@@ -94,160 +123,335 @@ poetry run python run.py
 
 ---
 
-## Деплой на Ubuntu (Python + Poetry + systemd)
+# Установка на Ubuntu
 
-Ниже — базовый сценарий, как поднять бота на сервере Ubuntu 22.04/24.04.
+Ниже максимально простой вариант для Ubuntu 22.04 / 24.04.
 
-### 1) Установить системные пакеты и Python
+## 1. Установить системные пакеты
 
 ```bash
 sudo apt update
-sudo apt install -y software-properties-common curl git
+sudo apt install -y curl git software-properties-common
+```
+
+---
+
+## 2. Установить Python
+
+Сначала проверьте, есть ли нужная версия:
+
+```bash
+python3 --version
+```
+
+Если нужной версии нет, можно поставить через `deadsnakes`:
+
+```bash
 sudo add-apt-repository -y ppa:deadsnakes/ppa
 sudo apt update
-sudo apt install -y python3.13 python3.13-venv python3.13-distutils
+sudo apt install -y python3.13 python3.13-venv python3.13-dev
+```
+
+Проверка:
+
+```bash
 python3.13 --version
 ```
 
-> Если `python3.13` уже есть в системе, шаг с `deadsnakes` можно пропустить.
+---
 
-### 2) Установить Poetry
+## 3. Установить Poetry
+
+Официальный способ:
 
 ```bash
 curl -sSL https://install.python-poetry.org | python3.13 -
+```
+
+Добавьте Poetry в PATH:
+
+```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
+```
+
+Проверка:
+
+```bash
 poetry --version
 ```
 
-### 3) Клонировать проект и установить зависимости
+---
+
+## 4. Клонировать проект
 
 ```bash
-cd /opt
-sudo git clone <YOUR_REPO_URL> notificator_bot
-sudo chown -R $USER:$USER /opt/notificator_bot
-cd /opt/notificator_bot
-
-# чтобы виртуальное окружение создавалось в проекте: /opt/notificator_bot/.venv
-poetry config virtualenvs.in-project true --local
-poetry env use 3.13
-poetry install --no-interaction --no-ansi
+git clone <YOUR_REPOSITORY_URL>
+cd <PROJECT_FOLDER>
 ```
 
-### 4) Создать `.env`
+---
+
+## 5. Настроить Poetry так, чтобы `.venv` был внутри проекта
 
 ```bash
-cp .env.example .env  # если есть шаблон
-# или создайте файл вручную:
+poetry config virtualenvs.in-project true
+```
+
+---
+
+## 6. Установить зависимости
+
+```bash
+poetry env use 3.13
+poetry install
+```
+
+---
+
+## 7. Создать `.env`
+
+```bash
 nano .env
 ```
 
-Заполните минимум: `BOT_TOKEN`, `DATABASE_URL`, `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL`,
-`TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL_NAME`, `AUTHOR_ID`.
+Минимум:
 
-### 5) Настроить systemd-сервис
-
-Создайте файл `/etc/systemd/system/notificator-bot.service`:
-
-```ini
-[Unit]
-Description=Telegram notificator bot
-After=network.target
-
-[Service]
-Type=simple
-User=ubuntu
-WorkingDirectory=/opt/notificator_bot
-Environment=PATH=/opt/notificator_bot/.venv/bin:/usr/bin:/bin
-ExecStart=/opt/notificator_bot/.venv/bin/python app.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-> Замените `ubuntu` на вашего пользователя, если он другой.
-
-Дальше включаем и запускаем:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable notificator-bot
-sudo systemctl start notificator-bot
-sudo systemctl status notificator-bot
-```
-
-Логи:
-
-```bash
-journalctl -u notificator-bot -f
-```
-
-### 6) Обновление бота на сервере
-
-```bash
-cd /opt/notificator_bot
-git pull
-poetry install --no-interaction --no-ansi
-sudo systemctl restart notificator-bot
+```env
+BOT_TOKEN=...
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/bot_db
 ```
 
 ---
 
-## Структура и автозагрузка хендлеров
+## 8. Запуск
 
-При запуске клиент автоматически сканирует директории:
-
-- `commands/` — команды (`/start`, `/help`, ...)
-- `buttons/` — callback-кнопки (inline keyboard)
-- `messages/` — обработчики сообщений
-- `schedules/` — периодические задачи
-
-Сканирование рекурсивное, поэтому можно хранить файлы в поддиректориях, например:
-
-- `buttons/info/show_profile.py`
-- `commands/admin/ban_user.py`
-- `messages/moderation/spam.py`
-
-Главное — чтобы в модуле был класс-наследник нужной базовой реализации:
-
-- `BaseCommand` (`core/implementations/command.py`)
-- `BaseButton` (`core/implementations/button.py`)
-- `BaseMessage` (`core/implementations/message.py`)
-- `BaseSchedule` (`core/implementations/schedule.py`)
+```bash
+poetry run python app.py
+```
 
 ---
 
-## Как создать команду (`/commands`)
+# Установка на Windows
 
-Создайте файл, например `commands/ping.py`:
+## 1. Установить Python
+
+Скачайте и установите Python:
+[https://www.python.org/downloads/](https://www.python.org/downloads/)
+
+Во время установки **обязательно включите**:
+
+* `Add python.exe to PATH`
+
+Проверка в PowerShell или CMD:
+
+```powershell
+python --version
+```
+
+---
+
+## 2. Установить PostgreSQL
+
+Скачайте PostgreSQL:
+[https://www.postgresql.org/download/windows/](https://www.postgresql.org/download/windows/)
+
+После установки запомните:
+
+* пользователя
+* пароль
+* порт
+* имя базы данных
+
+---
+
+## 3. Установить Poetry
+
+Официальная инструкция:
+[https://python-poetry.org/docs/#installation](https://python-poetry.org/docs/#installation)
+
+Обычно для PowerShell:
+
+```powershell
+(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+```
+
+Проверка:
+
+```powershell
+poetry --version
+```
+
+Если команда не найдена, перезапустите терминал.
+
+---
+
+## 4. Клонировать проект
+
+```powershell
+git clone <YOUR_REPOSITORY_URL>
+cd <PROJECT_FOLDER>
+```
+
+Если Git не установлен:
+[https://git-scm.com/download/win](https://git-scm.com/download/win)
+
+---
+
+## 5. Настроить Poetry на `.venv` внутри проекта
+
+```powershell
+poetry config virtualenvs.in-project true
+```
+
+---
+
+## 6. Установить зависимости
+
+```powershell
+poetry env use 3.13
+poetry install
+```
+
+---
+
+## 7. Создать `.env`
+
+Создайте файл `.env` в корне проекта, например:
+
+```env
+BOT_TOKEN=...
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/bot_db
+```
+
+---
+
+## 8. Запуск
+
+```powershell
+poetry run python app.py
+```
+
+---
+
+# Настройка PostgreSQL
+
+## Пример строки подключения
+
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/bot_db
+```
+
+Где:
+
+* `postgres` — пользователь БД
+* `password` — пароль
+* `localhost` — хост
+* `5432` — порт PostgreSQL
+* `bot_db` — имя базы данных
+
+---
+
+## Создание базы данных вручную
+
+Через `psql`:
+
+```sql
+CREATE DATABASE bot_db;
+```
+
+Если нужно сразу указать владельца:
+
+```sql
+CREATE DATABASE bot_db OWNER postgres;
+```
+
+---
+
+# Миграции Alembic
+
+## Создать миграцию
+
+```bash
+poetry run alembic revision -m "create table"
+```
+
+или с автогенерацией:
+
+```bash
+poetry run alembic revision --autogenerate -m "update models"
+```
+
+## Применить миграции
+
+```bash
+poetry run alembic upgrade head
+```
+
+## Откатить последнюю миграцию
+
+```bash
+poetry run alembic downgrade -1
+```
+
+---
+
+# Структура проекта
+
+Пример структуры:
+
+```text
+.
+├── commands/
+├── buttons/
+├── messages/
+├── schedules/
+├── database/
+│   ├── entities/
+│   └── services/
+├── core/
+├── alembic/
+├── app.py
+├── run.py
+├── pyproject.toml
+├── .env
+└── README.md
+```
+
+---
+
+# Логика проекта
+
+При запуске проект может автоматически загружать модули из папок:
+
+* `commands/` — Telegram-команды
+* `buttons/` — callback-кнопки
+* `messages/` — обработчики сообщений
+* `schedules/` — фоновые задачи
+
+---
+
+# Пример команды
 
 ```python
 from aiogram.types import Message
-
 from core.implementations.command import BaseCommand
 
 
 class PingCommand(BaseCommand):
     name = "ping"
-    description = "Проверка, что бот жив"
+    description = "Проверка работы бота"
 
     async def execute(self, message: Message) -> None:
         await message.answer("pong")
 ```
 
-После перезапуска бота команда станет доступна как `/ping`.
-
 ---
 
-## Как создать кнопку (`/buttons`)
-
-Создайте файл, например `buttons/ping_button.py`:
+# Пример кнопки
 
 ```python
 from aiogram.types import CallbackQuery
-
 from core.implementations.button import BaseButton
 
 
@@ -258,115 +462,9 @@ class PingButton(BaseButton):
         await callback.answer("Нажато")
 ```
 
-Можно располагать в поддиректориях (`buttons/info/ping_button.py`) — загрузка всё равно сработает.
-
 ---
 
-## Как создать триггер на сообщения (`/messages`)
-
-Создайте файл, например `messages/echo.py`:
-
-```python
-from aiogram.types import Message
-
-from core.implementations.message import BaseMessage
-
-
-class EchoMessage(BaseMessage):
-    trigger = "*"
-
-    async def execute(self, message: Message) -> None:
-        if message.text and not message.text.startswith("/"):
-            await message.answer(f"Эхо: {message.text}")
-```
-
-> `trigger` используется как routing-префикс:
-> - `trigger = "*"` — обработчик ловит все сообщения;
-> - `trigger = "текст"` — обработчик получает сообщения, которые начинаются с этого текста (без учета регистра).
-
----
-
-## Ожидание нажатия кнопки и сообщения с таймером
-
-В проекте есть waiter (`core/waiter.py`) и методы в клиенте:
-
-- `self.client.wait_for_button(...)`
-- `self.client.wait_for_message(...)`
-
-### Пример: ждать кнопку 10 секунд
-
-```python
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
-
-from core.implementations.command import BaseCommand
-
-
-class ConfirmCommand(BaseCommand):
-    name = "confirm"
-    description = "Демо ожидания кнопки"
-
-    async def execute(self, message: Message) -> None:
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="Подтвердить", callback_data="confirm_action")]]
-        )
-        prompt = await message.answer("Нажми кнопку за 10 секунд", reply_markup=keyboard)
-
-        async def on_timeout() -> None:
-            await prompt.edit_text("⏰ Время ожидания истекло")
-
-        callback = await self.client.wait_for_button(
-            chat_id=message.chat.id,
-            user_id=message.from_user.id,
-            timeout=10,
-            message_id=prompt.message_id,
-            on_timeout=on_timeout,
-        )
-
-        if callback and callback.data == "confirm_action":
-            await callback.answer("OK")
-            await prompt.edit_text("✅ Подтверждено")
-```
-
-### Пример: ждать сообщение 15 секунд
-
-```python
-from aiogram.types import Message
-
-from core.implementations.command import BaseCommand
-
-
-class AskNameCommand(BaseCommand):
-    name = "ask_name"
-    description = "Демо ожидания сообщения"
-
-    async def execute(self, message: Message) -> None:
-        prompt = await message.answer("Напиши имя в течение 15 секунд")
-
-        async def on_timeout() -> None:
-            await prompt.answer("⏰ Вы не успели ответить")
-
-        result = await self.client.wait_for_message(
-            chat_id=message.chat.id,
-            user_id=message.from_user.id,
-            timeout=15,
-            on_timeout=on_timeout,
-        )
-
-        if result and result.text:
-            await message.answer(f"Принял: {result.text}")
-```
-
----
-
-## Работа с БД: entities и services
-
-### Где создавать entities
-
-Entity-модели находятся в директории:
-
-- `database/entities/`
-
-Создайте новый файл, например `database/entities/notification_rule.py`:
+# Пример entity
 
 ```python
 from sqlalchemy import String
@@ -375,98 +473,127 @@ from sqlalchemy.orm import Mapped, mapped_column
 from core.database.base import BaseEntity
 
 
-class NotificationRuleEntity(BaseEntity):
-    __tablename__ = "notification_rules"
+class ExampleEntity(BaseEntity):
+    __tablename__ = "examples"
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    keyword: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
 ```
 
-### Где писать сервисы для entities
+---
 
-Сервисы запросов к БД находятся в:
-
-- `database/services/`
-
-Пример файла `database/services/notification_rules.py`:
+# Пример service
 
 ```python
 from collections.abc import Sequence
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.entities.notification_rule import NotificationRuleEntity
+from database.entities.example import ExampleEntity
 
 
-async def get_rules(session: AsyncSession) -> Sequence[NotificationRuleEntity]:
-    result = await session.scalars(select(NotificationRuleEntity))
+async def get_examples(session: AsyncSession) -> Sequence[ExampleEntity]:
+    result = await session.scalars(select(ExampleEntity))
     return result.all()
 ```
 
-Рекомендуемый подход:
-
-- в `database/services/*` держать только запросы и CRUD-логику;
-- управление транзакциями (`async with db.begin()`) делать в месте вызова (команда/кнопка/джоба).
-
 ---
 
-## Миграции Alembic
+# Полезные команды
 
-### Создать ревизию
-
-```bash
-poetry run alembic revision -m "create notification_rules"
-```
-
-или с автогенерацией:
+## Установка зависимостей
 
 ```bash
-poetry run alembic revision --autogenerate -m "add notification_rules table"
-```
-
-### Применить все миграции
-
-```bash
-poetry run alembic upgrade head
-```
-
-### Откатить последнюю миграцию
-
-```bash
-poetry run alembic downgrade -1
-```
-
-> `alembic/env.py` автоматически импортирует модели из `database/entities/`, поэтому новые entity будут участвовать в autogenerate.
-
----
-
-## Небольшие практические рекомендации
-
-- Держите `callback_data` коротким и уникальным.
-- Для сложных сценариев кнопок используйте префиксы (`settings:...`, `topic:...`).
-- Если команда запускает «мастер» (цепочку шагов), используйте waiter c timeout и `on_timeout`.
-- Для модулей лучше нейминг по домену: `commands/subscriptions/...`, `buttons/topics/...`, `database/services/subscribers.py`.
-- После добавления новой entity почти всегда нужны:
-  1. файл entity;
-  2. файл service;
-  3. миграция Alembic;
-  4. использование в командах/кнопках/джобах.
-
----
-
-## Часто используемые команды
-
-```bash
-# Установка зависимостей
 poetry install
+```
 
-# Запуск бота
+## Запуск бота
+
+```bash
 poetry run python app.py
+```
 
-# Новая миграция
+## Создание миграции
+
+```bash
 poetry run alembic revision -m "message"
+```
 
-# Применить миграции
+## Применение миграций
+
+```bash
 poetry run alembic upgrade head
 ```
+
+---
+
+# Деплой через systemd (Ubuntu)
+
+Если бот запускается на сервере, можно сделать сервис.
+
+Создайте файл:
+
+```bash
+/etc/systemd/system/bot.service
+```
+
+Пример:
+
+```ini
+[Unit]
+Description=Telegram bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/<PROJECT_FOLDER>
+Environment=PATH=/opt/<PROJECT_FOLDER>/.venv/bin:/usr/bin:/bin
+ExecStart=/opt/<PROJECT_FOLDER>/.venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Дальше:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable bot
+sudo systemctl start bot
+sudo systemctl status bot
+```
+
+Логи:
+
+```bash
+journalctl -u bot -f
+```
+
+---
+
+# Что заменить в этом шаблоне
+
+Перед использованием README замените:
+
+* `[PROJECT_NAME]`
+* `<YOUR_REPOSITORY_URL>`
+* `<PROJECT_FOLDER>`
+* список переменных `.env`
+* описание проекта
+* примеры команд и модулей, если они отличаются
+
+---
+
+# Рекомендации
+
+* держите `.venv` внутри проекта для предсказуемости;
+* не храните `.env` в git;
+* используйте Alembic для всех изменений БД;
+* разделяйте entities, services и handlers;
+* не перегружайте README деталями, которые относятся только к одному конкретному боту.
+
+---
+
+* Alim Mun (MIT License &copy; 2026) with love from Kazakhstan
