@@ -67,12 +67,12 @@ class AdminCommand(BaseCommand):
         )
 
         async with self.client.db.session() as db:
-            while True:
-                async with db.begin():
-                    wait_topics: bool = await get_config(db, "streams_wait_for_tags", "1") == "1"
-                    notify_channel: bool = await get_config(db, "streams_notify_channel", "1") == "1"
-                    notify_subscribers: bool = await get_config(db, "streams_notify_subscribers", "1") == "1"
+            async with db.begin():
+                wait_topics: bool = await get_config(db, "streams_wait_for_tags", "1") == "1"
+                notify_channel: bool = await get_config(db, "streams_notify_channel", "1") == "1"
+                notify_subscribers: bool = await get_config(db, "streams_notify_subscribers", "1") == "1"
 
+            while True:
                 keyboard = InlineKeyboardMarkup(
                     inline_keyboard=[
                         [InlineKeyboardButton(
@@ -132,6 +132,7 @@ class AdminCommand(BaseCommand):
                     await set_config(db, "streams_wait_for_tags", "1" if wait_topics else "0")
                     await set_config(db, "streams_notify_channel", "1" if notify_channel else "0")
                     await set_config(db, "streams_notify_subscribers", "1" if notify_subscribers else "0")
+
                 await callback.answer("Настройки сохранены ✅")
 
     async def _show_topics_menu(self, message: Message) -> None:
