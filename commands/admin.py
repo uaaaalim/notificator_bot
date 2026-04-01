@@ -17,9 +17,9 @@ class AdminCommand(BaseCommand):
     async def execute(self, message: Message) -> None:
         await self._show_main_menu(message)
 
-    async def on_timeout(self, message_id: int, prompt_message_id: int) -> None:
+    async def on_timeout(self, chat_id: int, prompt_message_id: int) -> None:
         await self.client.bot.edit_message_text(
-            chat_id=message_id,
+            chat_id=chat_id,
             message_id=prompt_message_id,
             text="⏰ Время ожидания истекло. Запустите /admin снова.",
         )
@@ -44,7 +44,7 @@ class AdminCommand(BaseCommand):
             message.from_user.id,
             30,
             prompt.message_id,
-            on_timeout = lambda: self.on_timeout(message.message_id, prompt.message_id)
+            on_timeout=lambda: self.on_timeout(message.chat.id, prompt.message_id)
         )
 
         if not callback:
@@ -67,64 +67,72 @@ class AdminCommand(BaseCommand):
         )
 
         async with self.client.db.session() as db:
-            async with db.begin():
-                while True:
+            while True:
+                async with db.begin():
                     wait_topics: bool = await get_config(db, "streams_wait_for_tags", "1") == "1"
                     notify_channel: bool = await get_config(db, "streams_notify_channel", "1") == "1"
                     notify_subscribers: bool = await get_config(db, "streams_notify_subscribers", "1") == "1"
 
-                    keyboard = InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [InlineKeyboardButton(text="Ожидать подтверждение тематик " + (
+                keyboard = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(
+                            text="Ожидать подтверждение тематик " + (
                                 "(Включено)" if wait_topics else "(Выключено)"
                             ),
-                                                  callback_data="admin:announcements:wait_topics",
-                                                  style="success" if wait_topics else "danger")],
-                            [InlineKeyboardButton(text="Отправлять уведомление в канал " + (
+                            callback_data="admin:announcements:wait_topics",
+                            style="success" if wait_topics else "danger",
+                        )],
+                        [InlineKeyboardButton(
+                            text="Отправлять уведомление в канал " + (
                                 "(Включено)" if notify_channel else "(Выключено)"
                             ),
-                                                  callback_data="admin:announcements:channels",
-                                                  style="success" if notify_channel else "danger")],
-                            [InlineKeyboardButton(text="Отправлять уведомления подписчикам " + (
+                            callback_data="admin:announcements:channels",
+                            style="success" if notify_channel else "danger",
+                        )],
+                        [InlineKeyboardButton(
+                            text="Отправлять уведомления подписчикам " + (
                                 "(Включено)" if notify_subscribers else "(Выключено)"
                             ),
-                                                  callback_data="admin:announcements:subscribers",
-                                                  style="success" if notify_subscribers else "danger")],
-                            [InlineKeyboardButton(text="⬅️ На главную", callback_data="admin:home")]
-                        ]
-                    )
+                            callback_data="admin:announcements:subscribers",
+                            style="success" if notify_subscribers else "danger",
+                        )],
+                        [InlineKeyboardButton(text="⬅️ На главную", callback_data="admin:home")]
+                    ]
+                )
 
-                    await prompt.edit_reply_markup(reply_markup=keyboard)
+                await prompt.edit_reply_markup(reply_markup=keyboard)
 
-                    callback = await self.client.wait_for_button(
-                        message.chat.id,
-                        message.from_user.id,
-                        30,
-                        prompt.message_id,
-                        on_timeout=lambda: self.on_timeout(message.message_id, prompt.message_id)
-                    )
+                callback = await self.client.wait_for_button(
+                    message.chat.id,
+                    message.from_user.id,
+                    30,
+                    prompt.message_id,
+                    on_timeout=lambda: self.on_timeout(message.chat.id, prompt.message_id)
+                )
 
-                    if not callback:
-                        return
+                if not callback:
+                    return
 
-                    if callback.data == "admin:announcements:wait_topics":
-                        wait_topics = not wait_topics
+                if callback.data == "admin:announcements:wait_topics":
+                    wait_topics = not wait_topics
 
-                    if callback.data == "admin:announcements:channels":
-                        notify_channel = not notify_channel
+                if callback.data == "admin:announcements:channels":
+                    notify_channel = not notify_channel
 
-                    if callback.data == "admin:announcements:subscribers":
-                        notify_subscribers = not notify_subscribers
+                if callback.data == "admin:announcements:subscribers":
+                    notify_subscribers = not notify_subscribers
 
-                    if callback.data == "admin:home":
-                        await callback.answer()
-                        await self.client.bot.delete_message(message.chat.id, prompt.message_id)
-                        await self._show_main_menu(message)
-                        return
+                if callback.data == "admin:home":
+                    await callback.answer()
+                    await self.client.bot.delete_message(message.chat.id, prompt.message_id)
+                    await self._show_main_menu(message)
+                    return
 
+                async with db.begin():
                     await set_config(db, "streams_wait_for_tags", "1" if wait_topics else "0")
                     await set_config(db, "streams_notify_channel", "1" if notify_channel else "0")
                     await set_config(db, "streams_notify_subscribers", "1" if notify_subscribers else "0")
+                await callback.answer("Настройки сохранены ✅")
 
     async def _show_topics_menu(self, message: Message) -> None:
         while True:
@@ -150,7 +158,7 @@ class AdminCommand(BaseCommand):
                 message.from_user.id,
                 30,
                 prompt.message_id,
-                on_timeout=lambda: self.on_timeout(message.message_id, prompt.message_id)
+                on_timeout=lambda: self.on_timeout(message.chat.id, prompt.message_id)
             )
 
             if not callback:
@@ -197,7 +205,7 @@ class AdminCommand(BaseCommand):
             message.chat.id,
             message.from_user.id,
             180,
-            on_timeout = lambda: self.on_timeout(message.message_id, prompt_message_id)
+            on_timeout=lambda: self.on_timeout(message.chat.id, prompt_message_id)
         )
         if not reply:
             return
@@ -279,7 +287,7 @@ class AdminCommand(BaseCommand):
 
         reply = await self.client.wait_for_message(
             message.chat.id, message.from_user.id, 120,
-            on_timeout = lambda: self.on_timeout(message.message_id, prompt_message_id)
+            on_timeout=lambda: self.on_timeout(message.chat.id, prompt_message_id)
         )
 
         if not reply:
@@ -313,7 +321,7 @@ class AdminCommand(BaseCommand):
 
         id_reply = await self.client.wait_for_message(
             message.chat.id, message.from_user.id, 120,
-            on_timeout = lambda: self.on_timeout(message.message_id, prompt_message_id)
+            on_timeout=lambda: self.on_timeout(message.chat.id, prompt_message_id)
         )
         if not id_reply:
             return
