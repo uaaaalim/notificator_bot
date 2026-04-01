@@ -94,6 +94,107 @@ poetry run python run.py
 
 ---
 
+## Деплой на Ubuntu (Python + Poetry + systemd)
+
+Ниже — базовый сценарий, как поднять бота на сервере Ubuntu 22.04/24.04.
+
+### 1) Установить системные пакеты и Python
+
+```bash
+sudo apt update
+sudo apt install -y software-properties-common curl git
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.13 python3.13-venv python3.13-distutils
+python3.13 --version
+```
+
+> Если `python3.13` уже есть в системе, шаг с `deadsnakes` можно пропустить.
+
+### 2) Установить Poetry
+
+```bash
+curl -sSL https://install.python-poetry.org | python3.13 -
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+poetry --version
+```
+
+### 3) Клонировать проект и установить зависимости
+
+```bash
+cd /opt
+sudo git clone <YOUR_REPO_URL> notificator_bot
+sudo chown -R $USER:$USER /opt/notificator_bot
+cd /opt/notificator_bot
+
+# чтобы виртуальное окружение создавалось в проекте: /opt/notificator_bot/.venv
+poetry config virtualenvs.in-project true --local
+poetry env use 3.13
+poetry install --no-interaction --no-ansi
+```
+
+### 4) Создать `.env`
+
+```bash
+cp .env.example .env  # если есть шаблон
+# или создайте файл вручную:
+nano .env
+```
+
+Заполните минимум: `BOT_TOKEN`, `DATABASE_URL`, `YOUTUBE_API_KEY`, `YOUTUBE_CHANNEL`,
+`TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`, `TWITCH_CHANNEL_NAME`, `AUTHOR_ID`.
+
+### 5) Настроить systemd-сервис
+
+Создайте файл `/etc/systemd/system/notificator-bot.service`:
+
+```ini
+[Unit]
+Description=Telegram notificator bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/notificator_bot
+Environment=PATH=/opt/notificator_bot/.venv/bin:/usr/bin:/bin
+ExecStart=/opt/notificator_bot/.venv/bin/python app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> Замените `ubuntu` на вашего пользователя, если он другой.
+
+Дальше включаем и запускаем:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable notificator-bot
+sudo systemctl start notificator-bot
+sudo systemctl status notificator-bot
+```
+
+Логи:
+
+```bash
+journalctl -u notificator-bot -f
+```
+
+### 6) Обновление бота на сервере
+
+```bash
+cd /opt/notificator_bot
+git pull
+poetry install --no-interaction --no-ansi
+sudo systemctl restart notificator-bot
+```
+
+---
+
 ## Структура и автозагрузка хендлеров
 
 При запуске клиент автоматически сканирует директории:
