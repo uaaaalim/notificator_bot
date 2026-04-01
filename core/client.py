@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, UTC
 
 import aiohttp
 from aiogram import Bot, Dispatcher, F
@@ -20,6 +21,7 @@ class BotClient:
     def __init__(self) -> None:
         self.config = load_config()
         self.logger = setup_logger(self.config.log_level)
+        self.uptime = datetime.now(UTC)
 
         self.bot: Bot = Bot(self.config.bot_token)
         self.dp = Dispatcher()
