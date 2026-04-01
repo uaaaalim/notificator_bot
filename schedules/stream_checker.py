@@ -612,7 +612,8 @@ class StreamCheckerSchedule(BaseSchedule):
                 )
                 notify_keyboard.inline_keyboard.append([
                     InlineKeyboardButton(
-                        text=f"{LIGHTENING_EMOJI} Получать уведомления лично!", url="https://t.me/" + me.username
+                        text=f"Получать уведомления лично!", url="https://t.me/" + me.username,
+                        icon_custom_emoji_id=LIGHTENING_EMOJI_ID
                     )
                 ])
 
